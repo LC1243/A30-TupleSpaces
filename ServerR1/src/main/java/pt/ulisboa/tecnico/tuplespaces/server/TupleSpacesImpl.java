@@ -33,4 +33,19 @@ public class TupleSpacesImpl extends TupleSpacesGrpc.TupleSpacesImplBase {
 
     }
 
+    @Override
+    public void getTupleSpacesState(TupleSpacesCentralized.getTupleSpacesStateRequest request, StreamObserver<TupleSpacesCentralized.getTupleSpacesStateResponse> responseObserver) {
+
+        //Get list from server
+        java.util.List<java.lang.String> tuples = server.getTupleSpacesState();
+
+        TupleSpacesCentralized.getTupleSpacesStateResponse response = TupleSpacesCentralized.getTupleSpacesStateResponse.newBuilder().addAllTuple(tuples).build();
+        // Send a single response through the stream.
+        responseObserver.onNext(response);
+        // Notify the client that the operation has been completed.
+        responseObserver.onCompleted();
+
+        System.out.println("GET_TUPLE_SPACES_STATE COMMAND EXECUTED WITH SUCCESS");
+
+    }
 }

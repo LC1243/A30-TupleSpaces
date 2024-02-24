@@ -47,8 +47,7 @@ public class ServerState {
   }
 
   public List<String> getTupleSpacesState() {
-    // TODO
-    return null;
+    return this.tuples;
   }
 
   public String ListToString() {

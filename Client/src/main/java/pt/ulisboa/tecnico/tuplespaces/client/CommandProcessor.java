@@ -82,8 +82,6 @@ public class CommandProcessor {
         // put the tuple
         clientService.sendPutRequest(tuple);
 
-        System.out.println("TODO: implement put command");
-
     }
 
     private void read(String[] split){
@@ -123,8 +121,11 @@ public class CommandProcessor {
         }
         String qualifier = split[1];
 
-        // get the tuple spaces state
-        System.out.println("TODO: implement getTupleSpacesState command");
+        com.google.protobuf.ProtocolStringList tuples = clientService.sendGetTupleSpacesStateRequest();
+
+        for (String str : tuples) {
+            System.out.println(str);
+        }
 
     }
 

@@ -1,5 +1,6 @@
 package pt.ulisboa.tecnico.tuplespaces.client.grpc;
 
+import com.google.protobuf.LazyStringArrayList;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import pt.ulisboa.tecnico.tuplespaces.centralized.contract.*;
@@ -30,6 +31,35 @@ public class ClientService {
         }
         // A Channel should be shutdown before stopping the process.
         channel.shutdownNow();
+    }
+
+    public com.google.protobuf.ProtocolStringList sendGetTupleSpacesStateRequest() {
+
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
+
+        TupleSpacesGrpc.TupleSpacesBlockingStub stub = TupleSpacesGrpc.newBlockingStub(channel);
+
+        TupleSpacesCentralized.getTupleSpacesStateRequest request = TupleSpacesCentralized.getTupleSpacesStateRequest.newBuilder().build();
+
+        // Armazena a lista de tuplos
+        com.google.protobuf.ProtocolStringList tuples = new LazyStringArrayList();
+
+        try {
+            TupleSpacesCentralized.getTupleSpacesStateResponse response = stub.getTupleSpacesState(request);
+
+            // Recebe a lista de tuplos
+            tuples = response.getTupleList();
+
+            System.out.println("OK");
+
+        } catch (StatusRuntimeException e) {
+            System.out.println("Caught exception with description: " +
+                    e.getStatus().getDescription());
+        }
+        // A Channel should be shutdown before stopping the process.
+        channel.shutdownNow();
+
+        return tuples;
     }
 
 }
