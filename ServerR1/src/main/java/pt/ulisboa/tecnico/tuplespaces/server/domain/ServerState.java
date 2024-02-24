@@ -50,4 +50,13 @@ public class ServerState {
     // TODO
     return null;
   }
+
+  public String ListToString() {
+    StringBuilder sb = new StringBuilder();
+    for (String tuple : tuples) {
+      sb.append(tuple).append(" "); // You can adjust the separator as per your requirement
+    }
+    return sb.toString().trim(); // Trim to remove trailing space
+
+  }
 }

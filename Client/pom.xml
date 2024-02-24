@@ -22,7 +22,7 @@
 
 		<mainclass>pt.ulisboa.tecnico.tuplespaces.client.ClientMain</mainclass>
 		<server.host>localhost</server.host>
-		<server.port>5001</server.port>
+		<server.port>2001</server.port>
 		<server.service>TupleSpaces</server.service>
 
 	</properties>

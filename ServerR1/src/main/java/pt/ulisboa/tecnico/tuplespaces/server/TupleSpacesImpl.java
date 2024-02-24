@@ -27,6 +27,8 @@ public class TupleSpacesImpl extends TupleSpacesGrpc.TupleSpacesImplBase {
             responseObserver.onNext(response);
             // Notify the client that the operation has been completed.
             responseObserver.onCompleted();
+            System.out.println(server.ListToString());
+            System.out.println("PUT COMMAND EXECUTED WITH SUCCESS");
         }
 
     }

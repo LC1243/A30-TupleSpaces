@@ -30,7 +30,6 @@ public class ServerMain {
 
         port = Integer.valueOf(args[1]);
 
-
         final BindableService impl = new TupleSpacesImpl();
 
         // Create a new server to listen on port.
