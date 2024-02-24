@@ -9,7 +9,19 @@ public class ServerState {
 
   public ServerState() {
     this.tuples = new ArrayList<String>();
-
+  }
+  public boolean tuppleIsValid(String tuple){
+    if (!tuple.substring(0,1).equals("<")
+            ||
+            !tuple.endsWith(">")
+            ||
+            tuple.contains(" ")
+    ) {
+      return false;
+    }
+    else {
+      return true;
+    }
   }
 
   public void put(String tuple) {
