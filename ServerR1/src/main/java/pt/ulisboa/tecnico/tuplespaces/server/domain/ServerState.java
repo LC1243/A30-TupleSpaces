@@ -24,7 +24,7 @@ public class ServerState {
     }
   }
 
-  public void put(String tuple) {
+  public synchronized void put(String tuple) {
     tuples.add(tuple);
     notifyAll();
   }
@@ -42,7 +42,7 @@ public class ServerState {
     return getMatchingTuple(pattern);
   }
 
-  public String take(String pattern) {
+  public synchronized String take(String pattern) {
     String tuple = getMatchingTuple(pattern);
 
     while (tuple == null) {
