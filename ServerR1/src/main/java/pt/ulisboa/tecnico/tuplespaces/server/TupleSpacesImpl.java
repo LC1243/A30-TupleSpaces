@@ -48,4 +48,20 @@ public class TupleSpacesImpl extends TupleSpacesGrpc.TupleSpacesImplBase {
         System.out.println("GET_TUPLE_SPACES_STATE COMMAND EXECUTED WITH SUCCESS");
 
     }
+
+    @Override
+    public void read(TupleSpacesCentralized.ReadRequest request, StreamObserver<TupleSpacesCentralized.ReadResponse> responseObserver){
+
+        String pattern = request.getSearchPattern();
+
+        String tuple = server.read(pattern);
+
+        TupleSpacesCentralized.ReadResponse response = TupleSpacesCentralized.ReadResponse.newBuilder().setResult(tuple).build();
+
+        responseObserver.onNext(response);
+
+        responseObserver.onCompleted();
+
+        System.out.println("READ COMMAND EXECUTED WITH SUCCESS");
+    }
 }
