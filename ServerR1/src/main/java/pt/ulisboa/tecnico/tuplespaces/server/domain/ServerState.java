@@ -60,7 +60,7 @@ public class ServerState {
 
   }
 
-  public List<String> getTupleSpacesState() {
+  public synchronized List<String> getTupleSpacesState() {
     return this.tuples;
   }
 
