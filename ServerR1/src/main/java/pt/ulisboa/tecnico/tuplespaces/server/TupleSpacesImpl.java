@@ -64,4 +64,28 @@ public class TupleSpacesImpl extends TupleSpacesGrpc.TupleSpacesImplBase {
 
         System.out.println("READ COMMAND EXECUTED WITH SUCCESS");
     }
+
+    @Override
+    public void take(TupleSpacesCentralized.TakeRequest request, StreamObserver<TupleSpacesCentralized.TakeResponse> responseObserver) {
+
+        String searchPattern = request.getSearchPattern();
+
+        boolean isValid = server.tuppleIsValid(searchPattern);
+
+        if(!isValid) {
+            responseObserver.onError(INVALID_ARGUMENT.withDescription("Tuple Name is Not Valid!").asRuntimeException());
+
+        } else {
+
+            TupleSpacesCentralized.TakeResponse response = TupleSpacesCentralized.TakeResponse.newBuilder().setResult(server.take(searchPattern)).build();
+            // Send a single response through the stream.
+            responseObserver.onNext(response);
+            // Notify the client that the operation has been completed.
+            responseObserver.onCompleted();
+            System.out.println(server.ListToString());
+            System.out.println("TAKE COMMAND EXECUTED WITH SUCCESS");
+        }
+
+    }
+
 }

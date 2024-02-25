@@ -81,4 +81,24 @@ public class ClientService {
         channel.shutdownNow();
     }
 
+    public void sendTakeRequest(String tuple) {
+
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
+
+        TupleSpacesGrpc.TupleSpacesBlockingStub stub = TupleSpacesGrpc.newBlockingStub(channel);
+
+        TupleSpacesCentralized.TakeRequest request = TupleSpacesCentralized.TakeRequest.newBuilder().setSearchPattern(tuple).build();
+
+        try {
+            TupleSpacesCentralized.TakeResponse response = stub.take(request);
+            System.out.println("OK");
+            System.out.println(response.getResult());
+        } catch (StatusRuntimeException e) {
+            System.out.println("Caught exception with description: " +
+                    e.getStatus().getDescription());
+        }
+        // A Channel should be shutdown before stopping the process.
+        channel.shutdownNow();
+    }
+
 }
