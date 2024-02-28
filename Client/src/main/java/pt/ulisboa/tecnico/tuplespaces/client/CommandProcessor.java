@@ -119,14 +119,29 @@ public class CommandProcessor {
             this.printUsage();
             return;
         }
+        // Qualifier - ignore in the first assignment
         String qualifier = split[1];
 
+        // Receives the tuples list
         com.google.protobuf.ProtocolStringList tuples = clientService.sendGetTupleSpacesStateRequest();
 
-        for (String str : tuples) {
-            System.out.println(str);
-        }
+        // Prints the list
+        String output = "[";
 
+        // Avoids calculating the length of the list every iteration of the loop
+        int len_tuples = tuples.size();
+
+        for (int i = 0; i < len_tuples; i++) {
+            output += tuples.get(i);
+
+            if (i < len_tuples - 1) {
+                output += ", ";
+            }
+        }
+        output += "]\n";
+
+        // Prints the list, in the correct format
+        System.out.println(output);
     }
 
     private void sleep(String[] split) {

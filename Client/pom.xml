@@ -69,11 +69,11 @@
 				</executions>
 				<configuration>
 					<mainClass>${mainclass}</mainClass>
-					<arguments>
+					 <!-- <arguments>
 						<argument>${server.host}</argument>
 						<argument>${server.port}</argument>
 						<argument>${server.service}</argument>
-					</arguments>
+					</arguments> -->
 				</configuration>
 			</plugin>
 		</plugins>
