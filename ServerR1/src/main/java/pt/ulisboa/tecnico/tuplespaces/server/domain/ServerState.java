@@ -54,18 +54,9 @@ public class ServerState {
   }
 
   public synchronized String take(String pattern) {
-    String tuple = getMatchingTuple(pattern);
-
-    while (tuple == null) {
-
-      try {
-        wait();
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      }
-      tuple = getMatchingTuple(pattern);
-    }
-
+    // get tuple to remove from Tuple Space
+    String tuple = this.read(pattern);
+    // remove tuple
     tuples.remove(tuple);
     return tuple;
 
