@@ -18,7 +18,7 @@ public class ServerMain {
         boolean debugMode = false;
 
         // Check arguments.
-        if (args.length != 2) {
+        if (args.length < 2) {
             System.err.println("Argument(s) missing!");
             System.err.printf("Usage: mvn exec:java -Dexec.args=<port> <qualifier>");
             return;
