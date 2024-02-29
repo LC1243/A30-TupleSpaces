@@ -12,19 +12,10 @@ import pt.ulisboa.tecnico.tuplespaces.centralized.contract.TupleSpacesCentralize
 import java.util.concurrent.CountDownLatch;
 
 public class ServerMain {
-    // added for first delivery ig
     private static int port;
 
     public static void main(String[] args) throws IOException, InterruptedException{
         boolean debugMode = false;
-        //teste
-        System.out.println(ServerMain.class.getSimpleName());
-
-        // Print received arguments
-        System.out.printf("Received %d arguments%n", args.length);
-        for (int i = 0; i < args.length; i++){
-            System.out.printf("arg[%d] = %s%n", i, args[i]);
-        }
 
         // Check arguments.
         if (args.length != 2) {
@@ -40,13 +31,15 @@ public class ServerMain {
             debugMode = true;
         }
 
-        //register in NameServer Test
+        //register the server in the Name Server
         final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:5001").usePlaintext().build();
 
         NameServerServiceGrpc.NameServerServiceBlockingStub stub = NameServerServiceGrpc.newBlockingStub(channel);
-        NameServer.RegisterRequest request = NameServer.RegisterRequest.newBuilder().setService("TupleSpace").setQualifier(args[1]).setAddress("localhost:" + args[0]).build();
+        NameServer.RegisterRequest request = NameServer.RegisterRequest.newBuilder().setService("TupleSpace").
+                setQualifier(args[1]).setAddress("localhost:" + args[0]).build();
 
         try {
+            // Send a register request with service: TupleSpace, address: localhost:args[0] and qualifier: args[1]
             NameServer.RegisterResponse response = stub.register(request);
 
             // Exception caught
@@ -69,17 +62,20 @@ public class ServerMain {
         System.out.println("To Stop the Server, please press CTRL+C");
 
         /*
-        * HANDLE CTRL+C
+        * HANDLE CTRL+C -> when it's pressed, first we unregister the server from the Name Server,
+        * and then we shutdown the server
         * */
 
         // Create a latch to wait for termination signal
         CountDownLatch shutdownLatch = new CountDownLatch(1);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+
             // Shutdown the server when CTRL+C is pressed
             final ManagedChannel channel1 = ManagedChannelBuilder.forTarget("localhost:5001").usePlaintext().build();
 
             NameServerServiceGrpc.NameServerServiceBlockingStub stub1 = NameServerServiceGrpc.newBlockingStub(channel1);
-            NameServer.DeleteRequest request2 = NameServer.DeleteRequest.newBuilder().setService("TupleSpace").setAddress(args[1]).setAddress("localhost:" + args[0]).build();
+            NameServer.DeleteRequest request2 = NameServer.DeleteRequest.newBuilder().setService("TupleSpace").
+                    setAddress(args[1]).setAddress("localhost:" + args[0]).build();
 
             try {
                 //send delete request to the Name Server, and handle response

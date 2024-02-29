@@ -13,18 +13,11 @@ if __name__ == '__main__':
     debugMode = False
     try:
 
-        """
-        # print received arguments
-        print("Received arguments:")
-        for i in range(1, len(sys.argv)):
-            print("  " + sys.argv[i])
-        """
-        for i in range(1, len(sys.argv)):
-            if (sys.argv[i] == "-debug"):
-                debugMode = True
+        if ( len(sys.argv) > 1) and (sys.argv[1] == "-debug"):
+            debugMode = True
 
-        # Check if arguments are provided and raise an exception
-        if len(sys.argv) > 1:
+        # Check if arguments are provided
+        elif len(sys.argv) > 1:
             print("No arguments needed to run the Name Server! The given arguments will be ignored")
 
         #create Name Server

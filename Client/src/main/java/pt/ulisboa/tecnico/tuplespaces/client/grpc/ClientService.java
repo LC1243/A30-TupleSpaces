@@ -23,13 +23,12 @@ public class ClientService {
         NameServerServiceGrpc.NameServerServiceBlockingStub stub = NameServerServiceGrpc.newBlockingStub(channel);
         NameServer.LookupRequest request = NameServer.LookupRequest.newBuilder().setService("TupleSpace").setQualifier("A").build();
 
-        // Finally, make the call using the stub
+        // Get the ip and port where the server is running
         NameServer.LookupResponse response = stub.lookup(request);
 
         // A Channel should be shutdown before stopping the process.
         channel.shutdownNow();
 
-        //System.out.println(response);
         com.google.protobuf.ProtocolStringList servers = new LazyStringArrayList();
         servers = response.getServerList();
 
@@ -39,8 +38,6 @@ public class ClientService {
             System.err.println("There aren't servers available. Please try run again");
             return;
         }
-
-        System.out.println("TARGET: " + target);
 
     }
 
@@ -53,9 +50,9 @@ public class ClientService {
 
         TupleSpacesGrpc.TupleSpacesBlockingStub stub = TupleSpacesGrpc.newBlockingStub(channel);
 
+        //Send a Put Request with tuple
         TupleSpacesCentralized.PutRequest request = TupleSpacesCentralized.PutRequest.newBuilder().setNewTuple(tuple).build();
 
-        System.out.println("SENT REQUEST TO SERVER");
         try {
             TupleSpacesCentralized.PutResponse response = stub.put(request);
             System.out.println("OK\n");
@@ -107,16 +104,16 @@ public class ClientService {
 
         TupleSpacesGrpc.TupleSpacesBlockingStub stub = TupleSpacesGrpc.newBlockingStub(channel);
 
+        // Sends a take request for a given tuple
         TupleSpacesCentralized.TakeRequest request = TupleSpacesCentralized.TakeRequest.newBuilder().setSearchPattern(tuple).build();
 
         try {
             TupleSpacesCentralized.TakeResponse response = stub.take(request);
             System.out.println("OK");
-            System.out.println(response.getResult());
+            System.out.println(response.getResult() + "\n");
             if(debugMode){
                 System.err.println("DEBUG: TakeRequest finished correctly\n");
             }
-            System.out.println("\n");
         // Exception caught
         } catch (StatusRuntimeException e) {
             System.out.println("Caught exception with description: " +
@@ -145,7 +142,7 @@ public class ClientService {
             // Receives the list
             tuples = response.getTupleList();
 
-            System.out.println("OK\n");
+            System.out.println("OK");
             if (debugMode){
                 System.err.println("DEBUG: GetTupleSpacesStateRequest finished correctly\n");
             }

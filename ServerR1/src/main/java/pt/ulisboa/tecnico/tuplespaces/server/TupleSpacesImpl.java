@@ -83,7 +83,7 @@ public class TupleSpacesImpl extends TupleSpacesGrpc.TupleSpacesImplBase {
             }
         // Valid tuple
         } else {
-
+            //Build response and remove tuple
             TupleSpacesCentralized.TakeResponse response = TupleSpacesCentralized.TakeResponse.newBuilder().setResult(server.take(searchPattern)).build();
             // Send a single response through the stream.
             responseObserver.onNext(response);
@@ -92,8 +92,6 @@ public class TupleSpacesImpl extends TupleSpacesGrpc.TupleSpacesImplBase {
             if(debugMode){
                 System.err.println("DEBUG: TAKE finished correctly\n");
             }
-            //System.out.println(server.ListToString());
-            //System.out.println("TAKE COMMAND EXECUTED WITH SUCCESS");
         }
 
     }

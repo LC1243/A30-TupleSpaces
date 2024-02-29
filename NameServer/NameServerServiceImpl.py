@@ -3,14 +3,12 @@ sys.path.insert(1, '../Contract/target/generated-sources/protobuf/python')
 import NameServer_pb2 as pb2
 import NameServer_pb2_grpc as pb2_grpc
 import grpc
-import re
-
 
 def isValidAddress(address):
     #separate host:port
     parts = address.split(':')
 
-    # Check if there are exactly two parts
+    # Check if there are exactly two parts or one of the parts is empty
     if len(parts) != 2 or not parts[0] or not parts[1].isdigit():
         return False
 
@@ -40,16 +38,18 @@ class NamingServer:
         self.services = {}
 
     def registerServer(self, service, qualifier, address):
-        # Adds service to the list
+        # Adds service to the list if not already in the Name Server
         if service not in self.services:
             self.services[service] = ServiceEntry(service)
 
+        #Associate server entry with respective service
         self.services[service].addServer(ServerEntry(address, qualifier))
 
     def deleteServer(self, service, address):
 
         if service in self.services:
             for server_entry in self.services[service].servers:
+                # if the service and address given correspond, remove the server
                 if server_entry.address == address:
                     self.services[service].servers.remove(server_entry)
                     return True
@@ -94,7 +94,7 @@ class NameServerServiceImpl(pb2_grpc.NameServerServiceServicer):
 
                     if server_entry.qualifier == qualifier:
                         response.server.append(server_entry.address)
-            # No qualifier
+            # No qualifier given, return all servers for the given service
             else:
                 response.server.extend([server_entry.address for server_entry in service_entry.servers])
         if self.debugMode:
@@ -108,7 +108,7 @@ class NameServerServiceImpl(pb2_grpc.NameServerServiceServicer):
             print("[DELETE REQUEST]:", request.service, request.address)
 
         result = self.server.deleteServer(request.service, request.address)
-
+        #if delete operation went smoothly
         if result:
             if self.debugMode:
                 print("[DELETE RESPONSE]: SUCCESS")

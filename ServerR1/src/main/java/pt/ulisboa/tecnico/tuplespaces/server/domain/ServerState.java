@@ -10,16 +10,16 @@ public class ServerState {
   public ServerState() {
     this.tuples = new ArrayList<String>();
   }
-  public boolean tuppleIsValid(String tuple){
-    if (!tuple.substring(0,1).equals("<")
+
+  public boolean tuppleIsValid(String tuple) {
+    if (!tuple.substring(0, 1).equals("<")
             ||
             !tuple.endsWith(">")
             ||
             tuple.contains(" ")
     ) {
       return false;
-    }
-    else {
+    } else {
       return true;
     }
   }
@@ -42,9 +42,11 @@ public class ServerState {
   public synchronized String read(String pattern) {
     String tuple = getMatchingTuple(pattern);
 
-    while (tuple == null){
+    //while the tuple isn't present in the TupleSpace
+    while (tuple == null) {
 
       try {
+        //wait until tuple is available
         wait();
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
@@ -67,12 +69,4 @@ public class ServerState {
     return this.tuples;
   }
 
-  public String ListToString() {
-    StringBuilder sb = new StringBuilder();
-    for (String tuple : tuples) {
-      sb.append(tuple).append(" "); // You can adjust the separator as per your requirement
-    }
-    return sb.toString().trim(); // Trim to remove trailing space
-
-  }
 }
