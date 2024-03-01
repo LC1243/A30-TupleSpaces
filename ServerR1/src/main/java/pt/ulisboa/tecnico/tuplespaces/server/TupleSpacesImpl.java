@@ -49,19 +49,32 @@ public class TupleSpacesImpl extends TupleSpacesGrpc.TupleSpacesImplBase {
         if(debugMode){
             System.err.println("DEBUG: READ command initialized correctly\n");
         }
+
         //Gets the pattern given my the request sent by the user respecting the format of the TupleSpacesCentralized.proto .
         String pattern = request.getSearchPattern();
-        // Reads from the server
-        String tuple = server.read(pattern);
 
-        TupleSpacesCentralized.ReadResponse response = TupleSpacesCentralized.ReadResponse.newBuilder().setResult(tuple).build();
-        //Send a single response through the stream.
-        responseObserver.onNext(response);
-        //Notify the cliente that the operation has been completed .
-        responseObserver.onCompleted();
+        //Validate the new Tuple, invoking a Server's State method
+        boolean isValid = server.tuppleIsValid(pattern);
 
-        if(debugMode){
-            System.err.println("DEBUG: READ command finished correctly\n");
+        if(!isValid) {
+            responseObserver.onError(INVALID_ARGUMENT.withDescription("Tuple Name is Not Valid!").asRuntimeException());
+            if (debugMode) {
+                System.err.println("DEBUG: READ command stopped. Tuple name is invalid\n");
+            }
+        } else {
+
+            // Reads from the server
+            String tuple = server.read(pattern);
+
+            TupleSpacesCentralized.ReadResponse response = TupleSpacesCentralized.ReadResponse.newBuilder().setResult(tuple).build();
+            //Send a single response through the stream.
+            responseObserver.onNext(response);
+            //Notify the client that the operation has been completed .
+            responseObserver.onCompleted();
+
+            if (debugMode) {
+                System.err.println("DEBUG: READ command finished correctly\n");
+            }
         }
     }
 
@@ -83,8 +96,9 @@ public class TupleSpacesImpl extends TupleSpacesGrpc.TupleSpacesImplBase {
             }
         // Valid tuple
         } else {
+            String result = server.take(searchPattern);
             //Build response and remove tuple
-            TupleSpacesCentralized.TakeResponse response = TupleSpacesCentralized.TakeResponse.newBuilder().setResult(server.take(searchPattern)).build();
+            TupleSpacesCentralized.TakeResponse response = TupleSpacesCentralized.TakeResponse.newBuilder().setResult(result).build();
             // Send a single response through the stream.
             responseObserver.onNext(response);
             // Notify the client that the operation has been completed.

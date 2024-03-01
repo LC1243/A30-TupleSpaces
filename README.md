@@ -58,11 +58,51 @@ mvn clean install
 
 ## Run the project
 
-Name Server (will run without arguments)
+### Setting up
+
+First you need to set up the virtual environment, in the home directory, A30-TupleSpaces
+1. Create a virtual environment 
+```s
+python3 -m venv .venv
+```
+2. Activate the virtual environment
+```s
+source .venv/bin/activate
+```
+
+3. Install grpcio package
+```s
+python -m pip install grpcio
+```
+4. Install grpcio-tools package
+```s
+python -m pip install grpcio-tools
+```
+5. If you wish to deactivate the virtual environment after running the project
+```s
+deactivate
+```
+
+### Running
+
+**Contract** 
+<br> You should run these command in Contract directory
+```s
+mvn install
+```
+```s
+mvn exec:exec
+```
+
+**Name Server** (will run without arguments)
+<br> You should run this command in NameServer directory
+
 ```s
 python3 server.py
 ```
-Server R1 (without arguments, will run on localhost, port 2001, with qualifier A)
+**Server R1** (without arguments, will run on localhost, port 2001, with qualifier A)
+<br> You should run these command in ServerR1 directory
+
 ```s
 mvn compile exec:java
 ```
@@ -71,8 +111,12 @@ Another way to run Server R1 (if you wish to run with another arguments, the qua
 mvn exec:java -Dexec.args="2001 A"
 ```
 
-Client (will run without arguments)
+**Client** (will run without arguments)
+<br> You should run this command in Contract directory
 ```s
 mvn compile exec:java
 ```
 
+### Debug Mode
+
+You can run the Client, ServerR1 and the NameServer with ```-debug``` flag, to see what requests they are handling while running the project.
