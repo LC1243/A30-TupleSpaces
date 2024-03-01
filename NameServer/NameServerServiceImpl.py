@@ -45,6 +45,21 @@ class NamingServer:
         #Associate server entry with respective service
         self.services[service].addServer(ServerEntry(address, qualifier))
 
+
+    def serverAlreadyExists(self, service, qualifier, address):
+            #server doesn't exist
+            if service not in self.services:
+                return False
+
+            #service exists
+            service_entry = self.services[service]
+
+            for server_entry in service_entry.servers:
+                if server_entry.address == address:
+                        return True
+
+            return False
+
     def deleteServer(self, service, address):
 
         if service in self.services:
@@ -68,7 +83,7 @@ class NameServerServiceImpl(pb2_grpc.NameServerServiceServicer):
             print("[REGISTER REQUEST]:", request.address, request.qualifier, request.service)
 
         # Checks if address is valid
-        if isValidAddress(request.address):
+        if isValidAddress(request.address) and not self.server.serverAlreadyExists(request.service, request.qualifier, request.address):
             self.server.registerServer(request.service, request.qualifier, request.address)
             if self.debugMode:
                 print("[REGISTER RESPONSE]: SUCCESS")
