@@ -55,3 +55,24 @@ mvn clean install
 
 * [Maven](https://maven.apache.org/) - Build and dependency management tool;
 * [gRPC](https://grpc.io/) - RPC framework.
+
+## Run the project
+
+Name Server (will run without arguments)
+```s
+python3 server.py
+```
+Server R1 (without arguments, will run on localhost, port 2001, with qualifier A)
+```s
+mvn compile exec:java
+```
+Another way to run Server R1 (if you wish to run with another arguments, the qualifier should still be A)
+```s
+mvn exec:java -Dexec.args="2001 A"
+```
+
+Client (will run without arguments)
+```s
+mvn compile exec:java
+```
+

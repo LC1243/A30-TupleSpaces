@@ -18,6 +18,10 @@ public class ClientService {
 
     public ClientService(boolean debugMode) {
         this.debugMode = debugMode;
+        this.registerName();
+    }
+
+    public void registerName() {
         final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:5001").usePlaintext().build();
 
         NameServerServiceGrpc.NameServerServiceBlockingStub stub = NameServerServiceGrpc.newBlockingStub(channel);
@@ -38,10 +42,11 @@ public class ClientService {
             System.err.println("There aren't servers available. Please try run again");
             return;
         }
-
     }
 
     public void sendPutRequest(String tuple) {
+        this.registerName();
+
         if(debugMode){
             System.err.println("DEBUG: Put Request initialized correctly\n");
         }
@@ -69,6 +74,8 @@ public class ClientService {
     }
 
     public void sendReadRequest(String tuple) {
+        this.registerName();
+
         if(debugMode){
             System.err.println("DEBUG: ReadRequest initialized correctly\n");
         }
@@ -96,6 +103,8 @@ public class ClientService {
     }
 
     public void sendTakeRequest(String tuple) {
+        this.registerName();
+
         if(debugMode){
             System.err.println("DEBUG: TakeRequest initialized correctly\n");
         }
@@ -124,6 +133,8 @@ public class ClientService {
     }
 
     public com.google.protobuf.ProtocolStringList sendGetTupleSpacesStateRequest() {
+        this.registerName();
+
         if(debugMode){
             System.err.println("DEBUG: GetTupleSpaceStateRequest initialized correctly\n");
         }
