@@ -7,6 +7,8 @@ import pt.ulisboa.tecnico.nameServer.contract.NameServerServiceGrpc;
 import pt.ulisboa.tecnico.tuplespaces.client.grpc.ClientService;
 
 public class ClientMain {
+
+    static final int numServers = 3;
     public static void main(String[] args) {
         boolean debugMode = false ;
 
@@ -21,6 +23,7 @@ public class ClientMain {
         }
 
         CommandProcessor parser = new CommandProcessor(new ClientService(debugMode));
+        //CommandProcessor parser = new CommandProcessor(new ClientService(ClientMain.numServers));
         parser.parseInput();
 
     }
