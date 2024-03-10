@@ -37,4 +37,5 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         print("NameServer stopped\n")
+        nameServer.stop(None)
         exit(0)

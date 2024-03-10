@@ -59,6 +59,7 @@ public class CommandProcessor {
 
                 case EXIT:
                     exit = true;
+                    clientService.closeChannels();
                     break;
 
                 default:
@@ -111,11 +112,11 @@ public class CommandProcessor {
         String tuple = split[1];
 
         // take the tuple
-        clientService.sendTakeRequest(tuple);
+        //clientService.sendTakeRequest(tuple);
     }
 
     private void getTupleSpacesState(String[] split){
-
+        /*
         if (split.length != 2){
             this.printUsage();
             return;
@@ -124,7 +125,7 @@ public class CommandProcessor {
         String qualifier = split[1];
 
         // Receives the tuples list
-        com.google.protobuf.ProtocolStringList tuples = clientService.sendGetTupleSpacesStateRequest();
+        //com.google.protobuf.ProtocolStringList tuples = clientService.sendGetTupleSpacesStateRequest();
 
         // Prints the list
         String output = "[";
@@ -143,6 +144,9 @@ public class CommandProcessor {
 
         // Prints the list, in the correct format
         System.out.println(output);
+
+
+         */
     }
 
     private void sleep(String[] split) {
@@ -213,6 +217,8 @@ public class CommandProcessor {
                 return -1;
         }
     }
+
+
 
     private boolean inputIsValid(String[] input){
         if (input.length < 2 

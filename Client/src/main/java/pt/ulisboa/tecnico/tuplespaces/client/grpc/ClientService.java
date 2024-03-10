@@ -5,27 +5,45 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import pt.ulisboa.tecnico.nameServer.contract.NameServer;
 import pt.ulisboa.tecnico.nameServer.contract.NameServerServiceGrpc;
-import pt.ulisboa.tecnico.tuplespaces.centralized.contract.*;
+import pt.ulisboa.tecnico.tuplespaces.client.ClientObserver;
+import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.*;
 import io.grpc.StatusRuntimeException;
 
+import pt.ulisboa.tecnico.tuplespaces.client.ResponseCollector;
 import pt.ulisboa.tecnico.tuplespaces.client.util.OrderedDelayer;
+
+import java.util.ArrayList;
 
 public class ClientService {
 
-    /*TODO: The gRPC client-side logic should be here.
-        This should include a method that builds a channel and stub,
-        as well as individual methods for each remote operation of this service.
-     */
+    private ArrayList<String> targets = new ArrayList<String>();
 
+    private boolean debugMode = false;
     OrderedDelayer delayer;
 
-    public ClientService(int numServers) {
+    private int numServers;
+
+    private ManagedChannel[] channels;
+    private TupleSpacesReplicaGrpc.TupleSpacesReplicaStub[] stubs;
+
+    public ClientService(boolean debugMode, int numServers) {
 
         /* TODO: create channel/stub for each server */
 
         /* The delayer can be used to inject delays to the sending of requests to the
             different servers, according to the per-server delays that have been set  */
+        this.numServers = numServers;
         delayer = new OrderedDelayer(numServers);
+        this.debugMode = debugMode;
+        this.lookupServer();
+
+        channels = new ManagedChannel[numServers];
+        stubs = new TupleSpacesReplicaGrpc.TupleSpacesReplicaStub[numServers];
+
+        for (int i = 0; i < numServers; i++) {
+            channels[i] = ManagedChannelBuilder.forTarget(targets.get(i)).usePlaintext().build();
+            stubs[i] = TupleSpacesReplicaGrpc.newStub(channels[i]);
+        }
     }
 
     /* This method allows the command processor to set the request delay assigned to a given server */
@@ -33,12 +51,52 @@ public class ClientService {
         delayer.setDelay(id, delay);
 
         /* TODO: Remove this debug snippet */
-        System.out.println("[Debug only]: After setting the delay, I'll test it");
-        for (Integer i : delayer) {
-            System.out.println("[Debug only]: Now I can send request to stub[" + i + "]");
-        }
-        System.out.println("[Debug only]: Done.");
+        //System.out.println("[Debug only]: After setting the delay, I'll test it");
+        //for (Integer i : delayer) {
+        //    System.out.println("[Debug only]: Now I can send request to stub[" + i + "]");
+        //}
+        //System.out.println("[Debug only]: Done.");
     }
+
+    public void closeChannels() {
+        if(debugMode)
+            System.err.println("DEBUG: Shutting down channels\n");
+
+        for (ManagedChannel ch : channels)
+            ch.shutdown();
+    }
+
+
+    // Lookup for a Server that can satisfy the service TupleSpace, by default with qualifier A
+    public void lookupServer() {
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:5001").usePlaintext().build();
+        try {
+            NameServerServiceGrpc.NameServerServiceBlockingStub stub = NameServerServiceGrpc.newBlockingStub(channel);
+            NameServer.LookupRequest request = NameServer.LookupRequest.newBuilder().setService("TupleSpace").build();
+
+            // Get the ip and port where the server is running
+            NameServer.LookupResponse response = stub.lookup(request);
+
+            com.google.protobuf.ProtocolStringList servers = new LazyStringArrayList();
+            servers = response.getServerList();
+
+            if (!servers.isEmpty()) {
+                for(int i = 0; i < response.getServerCount(); i++) {
+                    String target = response.getServer(i);
+                    targets.add(target);
+                }
+
+            } else {
+                System.err.println("There aren't servers available. Please try run again");
+                return;
+            }
+        } catch (StatusRuntimeException e) {
+            System.err.println("Error communicating with the NameServer during lookup: " + e.getStatus().getDescription());
+        } finally {
+            channel.shutdownNow();
+        }
+    }
+
 
     /* TODO: individual methods for each remote operation of the TupleSpaces service */
 
@@ -53,160 +111,103 @@ public class ClientService {
 
     */
 
-    private String target;
-    private boolean debugMode = false;
-
-    public ClientService(boolean debugMode) {
-        this.debugMode = debugMode;
-        this.lookupServer();
-    }
-
-    // Lookup for a Server that can satisfy the service TupleSpace, by default with qualifier A
-    public void lookupServer() {
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:5001").usePlaintext().build();
-
-        NameServerServiceGrpc.NameServerServiceBlockingStub stub = NameServerServiceGrpc.newBlockingStub(channel);
-        NameServer.LookupRequest request = NameServer.LookupRequest.newBuilder().setService("TupleSpace").setQualifier("A").build();
-
-        // Get the ip and port where the server is running
-        NameServer.LookupResponse response = stub.lookup(request);
-
-        // A Channel should be shutdown before stopping the process.
-        channel.shutdownNow();
-
-        com.google.protobuf.ProtocolStringList servers = new LazyStringArrayList();
-        servers = response.getServerList();
-
-        if(!servers.isEmpty()) {
-            target = response.getServer(0);
-        } else {
-            System.err.println("There aren't servers available. Please try run again");
-            return;
-        }
-    }
 
     public void sendPutRequest(String tuple) {
-        this.lookupServer();
+
+        ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
             System.err.println("DEBUG: Put Request initialized correctly\n");
         }
 
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
+        ArrayList<TupleSpacesReplicaXuLiskov.PutRequest> requests = new ArrayList<TupleSpacesReplicaXuLiskov.PutRequest>();
 
-        TupleSpacesGrpc.TupleSpacesBlockingStub stub = TupleSpacesGrpc.newBlockingStub(channel);
-
-        //Send a Put Request with tuple
-        TupleSpacesCentralized.PutRequest request = TupleSpacesCentralized.PutRequest.newBuilder().setNewTuple(tuple).build();
-
-        try {
-            TupleSpacesCentralized.PutResponse response = stub.put(request);
-            System.out.println("OK\n");
-            if (debugMode){
-                System.err.println("DEBUG: PutRequest finished correctly\n");
-            }
-        // Exception caught
-        } catch (StatusRuntimeException e) {
-            System.out.println("Caught exception with description: " +
-                    e.getStatus().getDescription());
+        for(int i = 0; i < numServers; i++) {
+            //create requests for each server, with the new tuple
+            TupleSpacesReplicaXuLiskov.PutRequest request = TupleSpacesReplicaXuLiskov.PutRequest.newBuilder().setNewTuple(tuple).build();
+            requests.add(request);
         }
-        // A Channel should be shutdown before stopping the process.
-        channel.shutdownNow();
+
+        for(Integer id : delayer) {
+
+            try {
+                stubs[id].put(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.PutResponse>(c));
+
+            // Exception caught
+            } catch (StatusRuntimeException e) {
+                System.out.println("Caught exception with description: " +
+                        e.getStatus().getDescription());
+            }
+
+        }
+
+        //wait all responses
+        try {
+            c.waitUntilAllReceived(numServers);
+        } catch(InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        System.out.println("OK\n");
+
+        if (debugMode) {
+            System.err.println("DEBUG: PutRequest finished correctly\n");
+        }
+
     }
 
     public void sendReadRequest(String tuple) {
-        this.lookupServer();
+
+        ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
-            System.err.println("DEBUG: ReadRequest initialized correctly\n");
+            System.err.println("DEBUG: Read Request initialized correctly\n");
         }
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
 
-        TupleSpacesGrpc.TupleSpacesBlockingStub stub = TupleSpacesGrpc.newBlockingStub(channel);
-        //Creates a read request
-        TupleSpacesCentralized.ReadRequest request = TupleSpacesCentralized.ReadRequest.newBuilder().setSearchPattern(tuple).build();
-        try {
-            //Answers the read request and displays the result
-            TupleSpacesCentralized.ReadResponse response = stub.read(request);
-            System.out.println("OK");
-            System.out.printf("%s%n\n", response.getResult());
+        ArrayList<TupleSpacesReplicaXuLiskov.ReadRequest> requests = new ArrayList<TupleSpacesReplicaXuLiskov.ReadRequest>();
 
-            if(debugMode){
-                System.err.println("DEBUG: ReadRequest finished correctly\n");
+
+        for(int i = 0; i < numServers; i++) {
+            //create requests for each server, with the new tuple
+            TupleSpacesReplicaXuLiskov.ReadRequest request = TupleSpacesReplicaXuLiskov.ReadRequest.newBuilder().setSearchPattern(tuple).build();
+            requests.add(request);
+
+
+        }
+
+        for(Integer id : delayer) {
+
+            try {
+                stubs[id].read(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.ReadResponse>(c));
+
+                // Exception caught
+            } catch (StatusRuntimeException e) {
+                System.out.println("Caught exception with description: " +
+                        e.getStatus().getDescription());
             }
-        // Exception caught
-        } catch (StatusRuntimeException e) {
-            System.out.println("Caught exception with description: " +
-                    e.getStatus().getDescription());
+
+            if(!c.getCollectedResponses().isEmpty()){
+                System.out.println("OK " + id );
+                System.out.println(c.getFirstCollectedResponse());
+                return;
+            }
+
         }
-        // A Channel should be shutdown before stopping the process.
-        channel.shutdownNow();
+
+        //wait for the first response
+        try {
+            c.waitUntilAllReceived(1);
+            System.out.println("OK");
+            System.out.println(c.getFirstCollectedResponse());
+        } catch(InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        if (debugMode) {
+            System.err.println("DEBUG: Read Request finished correctly\n");
+        }
+
     }
 
-    public void sendTakeRequest(String tuple) {
-        this.lookupServer();
 
-        if(debugMode){
-            System.err.println("DEBUG: TakeRequest initialized correctly\n");
-        }
-
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
-
-        TupleSpacesGrpc.TupleSpacesBlockingStub stub = TupleSpacesGrpc.newBlockingStub(channel);
-
-        // Sends a take request for a given tuple
-        TupleSpacesCentralized.TakeRequest request = TupleSpacesCentralized.TakeRequest.newBuilder().setSearchPattern(tuple).build();
-
-        try {
-            TupleSpacesCentralized.TakeResponse response = stub.take(request);
-            System.out.println("OK");
-            System.out.println(response.getResult() + "\n");
-            if(debugMode){
-                System.err.println("DEBUG: TakeRequest finished correctly\n");
-            }
-        // Exception caught
-        } catch (StatusRuntimeException e) {
-            System.out.println("Caught exception with description: " +
-                    e.getStatus().getDescription());
-        }
-        // A Channel should be shutdown before stopping the process.
-        channel.shutdownNow();
-    }
-
-    public com.google.protobuf.ProtocolStringList sendGetTupleSpacesStateRequest() {
-        this.lookupServer();
-
-        if(debugMode){
-            System.err.println("DEBUG: GetTupleSpaceStateRequest initialized correctly\n");
-        }
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
-
-        TupleSpacesGrpc.TupleSpacesBlockingStub stub = TupleSpacesGrpc.newBlockingStub(channel);
-
-        TupleSpacesCentralized.getTupleSpacesStateRequest request = TupleSpacesCentralized.getTupleSpacesStateRequest.newBuilder().build();
-
-        // Stores the tuples list
-        com.google.protobuf.ProtocolStringList tuples = new LazyStringArrayList();
-
-        try {
-            TupleSpacesCentralized.getTupleSpacesStateResponse response = stub.getTupleSpacesState(request);
-
-            // Receives the list
-            tuples = response.getTupleList();
-
-            System.out.println("OK");
-            if (debugMode){
-                System.err.println("DEBUG: GetTupleSpacesStateRequest finished correctly\n");
-            }
-            // Exception caught
-        } catch (StatusRuntimeException e) {
-            System.out.println("Caught exception with description: " +
-                    e.getStatus().getDescription());
-        }
-        // A Channel should be shutdown before stopping the process.
-        channel.shutdownNow();
-
-        // Returns the list
-        return tuples;
-    }
 }

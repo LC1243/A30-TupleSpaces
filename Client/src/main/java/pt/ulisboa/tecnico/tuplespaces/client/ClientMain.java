@@ -22,8 +22,8 @@ public class ClientMain {
             System.err.println("No arguments needed to run Client! The given arguments will be ignored");
         }
 
-        CommandProcessor parser = new CommandProcessor(new ClientService(debugMode));
-        //CommandProcessor parser = new CommandProcessor(new ClientService(ClientMain.numServers));
+
+        CommandProcessor parser = new CommandProcessor(new ClientService(debugMode, ClientMain.numServers));
         parser.parseInput();
 
     }
