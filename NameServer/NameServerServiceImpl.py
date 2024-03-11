@@ -4,6 +4,10 @@ import NameServer_pb2 as pb2
 import NameServer_pb2_grpc as pb2_grpc
 import grpc
 
+from serverEntry import ServerEntry
+from serviceEntry import ServiceEntry
+from namingServer import NamingServer
+
 def isValidAddress(address):
     #separate host:port
     parts = address.split(':')
@@ -18,58 +22,6 @@ def isValidAddress(address):
         return False
 
     return True
-
-class ServerEntry:
-    #Address must have the form host:port
-    def __init__(self, address, qualifier):
-        self.address = address
-        self.qualifier = qualifier
-
-class ServiceEntry:
-    def __init__(self, service):
-        self.service = service
-        self.servers = []
-
-    def addServer(self, server_entry):
-        self.servers.append(server_entry)
-
-class NamingServer:
-    def __init__(self):
-        self.services = {}
-
-    def registerServer(self, service, qualifier, address):
-        # Adds service to the list if not already in the Name Server
-        if service not in self.services:
-            self.services[service] = ServiceEntry(service)
-
-        #Associate server entry with respective service
-        self.services[service].addServer(ServerEntry(address, qualifier))
-
-
-    def serverAlreadyExists(self, service, qualifier, address):
-            #server doesn't exist
-            if service not in self.services:
-                return False
-
-            #service exists
-            service_entry = self.services[service]
-
-            for server_entry in service_entry.servers:
-                if server_entry.address == address:
-                        return True
-
-            return False
-
-    def deleteServer(self, service, address):
-
-        if service in self.services:
-            for server_entry in self.services[service].servers:
-                # if the service and address given correspond, remove the server
-                if server_entry.address == address:
-                    self.services[service].servers.remove(server_entry)
-                    return True
-
-        return False
 
 
 class NameServerServiceImpl(pb2_grpc.NameServerServiceServicer):
