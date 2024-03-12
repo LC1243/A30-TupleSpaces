@@ -13,6 +13,12 @@ import pt.ulisboa.tecnico.tuplespaces.client.ResponseCollector;
 import pt.ulisboa.tecnico.tuplespaces.client.util.OrderedDelayer;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
+
+import static io.grpc.Status.INVALID_ARGUMENT;
+
 
 public class ClientService {
 
@@ -26,16 +32,16 @@ public class ClientService {
     private ManagedChannel[] channels;
     private TupleSpacesReplicaGrpc.TupleSpacesReplicaStub[] stubs;
 
+    private int clientId;
+
     public ClientService(boolean debugMode, int numServers) {
 
-        /* TODO: create channel/stub for each server */
-
-        /* The delayer can be used to inject delays to the sending of requests to the
-            different servers, according to the per-server delays that have been set  */
         this.numServers = numServers;
         delayer = new OrderedDelayer(numServers);
         this.debugMode = debugMode;
         this.lookupServer();
+
+        this.clientId = (int) System.currentTimeMillis();
 
         channels = new ManagedChannel[numServers];
         stubs = new TupleSpacesReplicaGrpc.TupleSpacesReplicaStub[numServers];
@@ -44,18 +50,13 @@ public class ClientService {
             channels[i] = ManagedChannelBuilder.forTarget(targets.get(i)).usePlaintext().build();
             stubs[i] = TupleSpacesReplicaGrpc.newStub(channels[i]);
         }
+
+
     }
 
     /* This method allows the command processor to set the request delay assigned to a given server */
     public void setDelay(int id, int delay) {
         delayer.setDelay(id, delay);
-
-        /* TODO: Remove this debug snippet */
-        //System.out.println("[Debug only]: After setting the delay, I'll test it");
-        //for (Integer i : delayer) {
-        //    System.out.println("[Debug only]: Now I can send request to stub[" + i + "]");
-        //}
-        //System.out.println("[Debug only]: Done.");
     }
 
     public void closeChannels() {
@@ -67,7 +68,7 @@ public class ClientService {
     }
 
 
-    // Lookup for a Server that can satisfy the service TupleSpace, by default with qualifier A
+    // Lookup for Servers that can satisfy the service TupleSpace
     public void lookupServer() {
         final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:5001").usePlaintext().build();
         try {
@@ -139,6 +140,7 @@ public class ClientService {
                         e.getStatus().getDescription());
             }
 
+
         }
 
         //wait all responses
@@ -175,30 +177,25 @@ public class ClientService {
 
         }
 
-        for(Integer id : delayer) {
+        Iterator<Integer> iterator = delayer.iterator(); // Get the iterator from the delayer
 
+        while (c.getCollectedResponses().isEmpty() && iterator.hasNext()) {
+            Integer id = iterator.next(); // Get the next element from the iterator
             try {
+                // Send the request to the server with the id
                 stubs[id].read(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.ReadResponse>(c));
 
-                // Exception caught
             } catch (StatusRuntimeException e) {
-                System.out.println("Caught exception with description: " +
-                        e.getStatus().getDescription());
+                // Handle status runtime exception
+                System.out.println("Caught exception with description: " + e.getStatus().getDescription());
             }
-
-            if(!c.getCollectedResponses().isEmpty()){
-                System.out.println("OK " + id );
-                System.out.println(c.getFirstCollectedResponse());
-                return;
-            }
-
         }
 
         //wait for the first response
         try {
             c.waitUntilAllReceived(1);
             System.out.println("OK");
-            System.out.println(c.getFirstCollectedResponse());
+            System.out.println(c.getFirstCollectedResponse() + "\n");
         } catch(InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -206,7 +203,173 @@ public class ClientService {
         if (debugMode) {
             System.err.println("DEBUG: Read Request finished correctly\n");
         }
+    }
 
+    public void sendTakeRequest(String tuple) {
+
+       //List<String> intersection = sendTakePhase1Request(tuple);
+
+        /*
+       if(intersection.isEmpty())
+           sendTakePhase1ReleaseRequest(tuple);
+
+
+         */
+       /*
+       * TODO: In case a list returned by a server is empty (request rejected)
+       *  release locks and repeat Phase1
+       */
+        /*
+       String toRemove = chooseTuple(intersection);
+       sendTakePhase2Request(toRemove);
+
+       */
+    }
+
+    public List<String> findIntersection(List<List<String>> lists) {
+        if (lists == null || lists.size() < 2) {
+            return new ArrayList<>(); // Return an empty list if there are fewer than two lists
+        }
+
+        // Create a copy of the first list to avoid modifying the original list
+        List<String> intersection = new ArrayList<>(lists.get(0));
+
+        // Iterate through the other lists and retain only the elements present in all lists
+        for (int i = 1; i < lists.size(); i++) {
+            intersection.retainAll(lists.get(i));
+        }
+
+        return intersection;
+    }
+
+
+    public List<String> sendTakePhase1Request(String pattern) {
+
+        ResponseCollector c = new ResponseCollector();
+
+        if(debugMode){
+            System.err.println("DEBUG: Take Request initialized correctly\n");
+        }
+
+        ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1Request> requests =
+                new ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1Request>();
+
+        for(int i = 0; i < numServers; i++) {
+            //create requests for each server, with the new tuple
+            TupleSpacesReplicaXuLiskov.TakePhase1Request request =
+                    TupleSpacesReplicaXuLiskov.TakePhase1Request.newBuilder().setSearchPattern(pattern).setClientId(clientId).build();
+            requests.add(request);
+
+        }
+
+        for(Integer id : delayer) {
+
+            try {
+                stubs[id].takePhase1(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1Response>(c));
+
+                // Exception caught
+            } catch (StatusRuntimeException e) {
+                System.out.println("Caught exception with description: " +
+                        e.getStatus().getDescription());
+            }
+
+        }
+
+        try {
+            c.waitUntilAllListsAreRecieved(numServers);
+        } catch(InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        //remove the additional '|' in the end
+        c.removeLastElement();
+
+        long n_lists = c.getNumberOfLists();
+
+        List<List<String>> listOfLists = new ArrayList<>();
+
+        for (int i = 0; i < n_lists; i++) {
+            List<String> list = c.getLastListAndRemove();
+            listOfLists.add(list);
+        }
+
+        return findIntersection(listOfLists);
+
+    }
+
+    public void sendTakePhase1ReleaseRequest(String tuple){
+        ResponseCollector c = new ResponseCollector();
+
+        if(debugMode){
+            System.err.println("DEBUG: Take Phase 1 Request initialized correctly\n");
+        }
+
+        ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest> requests =
+                new ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest>();
+
+        for(int i = 0; i < numServers; i++) {
+            //create requests for each server, with the new tuple
+            TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest request =
+                    TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest.newBuilder().setClientId(clientId).build();
+            requests.add(request);
+
+        }
+        for(Integer id : delayer) {
+            try {
+                stubs[id].takePhase1Release(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
+            } catch (StatusRuntimeException e) {
+                System.out.println("Locks got released before the take operation finished");
+                if (debugMode) {
+                    System.err.println("DEBUG: TAKE PHASE 1 RELEASE command stopped.\n");
+                }
+            }
+        }
+    }
+
+    public String chooseTuple(List<String> intersection) {
+        Random random = new Random();
+        int randomIndex = random.nextInt(intersection.size());
+
+        //Get random tuple
+        String randomTuple = intersection.get(randomIndex);
+
+        return randomTuple;
+    }
+
+    public void sendTakePhase2Request(String tuple){
+        ResponseCollector c = new ResponseCollector();
+
+        if(debugMode){
+            System.err.println("DEBUG: Take Phase 2 Request initialized correctly\n");
+        }
+        ArrayList<TupleSpacesReplicaXuLiskov.TakePhase2Request> requests =
+                new ArrayList<TupleSpacesReplicaXuLiskov.TakePhase2Request>();
+
+        for(int i = 0; i < numServers; i++) {
+            //create requests for each server, with the new tuple
+            TupleSpacesReplicaXuLiskov.TakePhase2Request request =
+                    TupleSpacesReplicaXuLiskov.TakePhase2Request.newBuilder().setClientId(clientId).build();
+            requests.add(request);
+
+        }
+        for(Integer id : delayer) {
+            try {
+                stubs[id].takePhase2(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase2Response>(c));
+            } catch (StatusRuntimeException e) {
+                System.out.println("Locks got released before the take operation finished");
+                if (debugMode) {
+                    System.err.println("DEBUG: TAKE PHASE 2 command stopped.\n");
+                }
+            }
+        }
+
+        try {
+            c.waitUntilAllListsAreRecieved(numServers);
+        } catch(InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        System.out.print("OK\n" + tuple + "\n");
     }
 
 
