@@ -2,6 +2,8 @@ package pt.ulisboa.tecnico.tuplespaces.client;
 
 import pt.ulisboa.tecnico.tuplespaces.client.grpc.ClientService;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class CommandProcessor {
@@ -116,23 +118,34 @@ public class CommandProcessor {
     }
 
     private void getTupleSpacesState(String[] split){
-        /*
+
         if (split.length != 2){
             this.printUsage();
             return;
         }
-        // Qualifier - ignore in the first assignment
-        String qualifier = split[1];
 
+        int qualifier = this.indexOfServerQualifier(split[1]);
+
+        // Invalid qualifier
+        if (qualifier == -1) {
+            try {
+                throw new NumberFormatException("Qualifier must be A, B or C");
+            } catch (NumberFormatException e) {
+                System.err.println(e.getMessage());
+                // Propagate the exception to the client or handle it appropriately
+                return;
+            }
+        }
         // Receives the tuples list
-        //com.google.protobuf.ProtocolStringList tuples = clientService.sendGetTupleSpacesStateRequest();
+        List<String> tuples = clientService.sendGetTupleSpacesStateRequest(split[1]);
 
         // Prints the list
         String output = "[";
 
         // Avoids calculating the length of the list every iteration of the loop
         int len_tuples = tuples.size();
-
+        
+        // Gets all the tuples
         for (int i = 0; i < len_tuples; i++) {
             output += tuples.get(i);
 
@@ -140,13 +153,12 @@ public class CommandProcessor {
                 output += ", ";
             }
         }
+        // Closes the list
         output += "]\n";
 
         // Prints the list, in the correct format
         System.out.println(output);
 
-
-         */
     }
 
     private void sleep(String[] split) {
@@ -154,6 +166,8 @@ public class CommandProcessor {
         this.printUsage();
         return;
       }
+
+      // Number of seconds to sleep
       Integer time;
 
       // checks if input String can be parsed as an Integer
@@ -164,6 +178,7 @@ public class CommandProcessor {
         return;
       }
 
+      // Sleeping
       try {
         Thread.sleep(time*1000);
       } catch (InterruptedException e) {
@@ -177,9 +192,11 @@ public class CommandProcessor {
         return;
       }
 
+      // Gets the qualifier
       int qualifier = indexOfServerQualifier(split[1]);
       if (qualifier == -1)
           System.out.println("Invalid server qualifier");
+
       Integer time;
 
       // checks if input String can be parsed as an Integer
@@ -205,6 +222,7 @@ public class CommandProcessor {
                 "- exit\n");
     }
 
+    /* Turns the string qualifier into an integer, -1 if invalid */
     private int indexOfServerQualifier(String qualifier) {
         switch (qualifier) {
             case "A":

@@ -26,6 +26,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         //Validate the new Tuple, invoking a Server's State method
         boolean isValid = server.tuppleIsValid(newTuple);
 
+        // Invalid tuple name
         if(!isValid) {
             responseObserver.onError(INVALID_ARGUMENT.withDescription("Tuple Name is Not Valid!").asRuntimeException());
 
@@ -62,7 +63,8 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
 
         //Validate the new Tuple, invoking a Server's State method
         boolean isValid = server.tuppleIsValid(pattern);
-
+        
+        // Invalid tuple
         if(!isValid) {
             responseObserver.onError(INVALID_ARGUMENT.withDescription("Tuple Name is Not Valid!").asRuntimeException());
             if (debugMode) {
@@ -99,18 +101,17 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         // Checks if the tuple is valid
         boolean isValid = server.tuppleIsValid(searchPattern);
 
+        // Invalid tuple
         if(!isValid) {
             responseObserver.onError(INVALID_ARGUMENT.withDescription("Tuple Name is Not Valid!").asRuntimeException());
             if(debugMode){
                 System.err.println("DEBUG: TAKE PHASE 1 command stopped. Tuple name is invalid\n");
             }
-
-            // Valid tuple
+        // Valid tuple
         } else {
 
-             List<String> matchingTuples = server.takePhase1(searchPattern, clientId);
+            List<String> matchingTuples = server.takePhase1(searchPattern, clientId);
 
-            System.out.println(matchingTuples);
 
             //Build response and remove tuple
             TupleSpacesReplicaXuLiskov.TakePhase1Response response =
@@ -136,6 +137,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         int clientId = request.getClientId();
 
         int result = server.takePhase1Release(clientId);
+
         //Build response and remove tuple
         if (result == 1) {
 
@@ -171,6 +173,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         int clientId = request.getClientId();
 
         int result = server.takePhase2(tuple, clientId);
+
         //Build response and remove tuple
         if (result == 1) {
 
@@ -192,4 +195,26 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         }
 
     }
+
+    @Override
+    public void getTupleSpacesState(TupleSpacesReplicaXuLiskov.getTupleSpacesStateRequest request, StreamObserver<TupleSpacesReplicaXuLiskov.getTupleSpacesStateResponse> responseObserver) {
+
+        //Get tuples list
+        java.util.List<java.lang.String> tuples = server.getTupleSpacesState();
+
+        if(debugMode){
+            System.err.println(" DEBUG: Server's list delivered correctly. getTupleSpacesState iniatilized correctly\n");
+        }
+        TupleSpacesReplicaXuLiskov.getTupleSpacesStateResponse response = TupleSpacesReplicaXuLiskov.getTupleSpacesStateResponse.newBuilder().addAllTuple(tuples).build();
+        // Send a single response through the stream.
+        responseObserver.onNext(response);
+        // Notify the client that the operation has been completed.
+        responseObserver.onCompleted();
+
+        if(debugMode){
+            System.err.println("DEBUG: getTupleSpaceState initialized correctly\n");
+        }
+
+    }
+
 }

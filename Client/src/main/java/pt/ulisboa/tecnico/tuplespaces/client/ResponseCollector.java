@@ -14,12 +14,11 @@ public class ResponseCollector {
         collectedResponses.add(s);
         notifyAll();
     }
-    synchronized public void addAllStrings(List<String> strings, boolean first) {
-        if (first)
-            this.addString("|");
-
+    synchronized public void addAllStrings(List<String> strings) {
+        collectedResponses.add("|");
         collectedResponses.addAll(strings);
-        this.addString("|");
+        collectedResponses.add("|");
+        notifyAll();
     }
     synchronized public String getStrings() {
         String res = new String();
@@ -37,7 +36,7 @@ public class ResponseCollector {
     synchronized public long getNumberOfLists() {
         return collectedResponses.stream()
                 .filter(element -> element.equals("|"))
-                .count();
+                .count() / 2;
     }
 
     synchronized  public void waitUntilAllListsAreRecieved(int n) throws InterruptedException {
@@ -45,17 +44,21 @@ public class ResponseCollector {
             wait();
     }
 
-    public List<String> getLastListAndRemove() {
+    synchronized public List<String> getLastListAndRemove() {
         if (collectedResponses.isEmpty()) {
             return null; // No accumulated responses
         }
 
         // Find the last occurrence of "|" in the accumulated responses
         int lastIndex = -1;
+        int count = 0;
         for (int i = collectedResponses.size() - 1; i >= 0; i--) {
-            if (collectedResponses.get(i).equals("|")) {
-                lastIndex = i;
-                break;
+            if ("|".equals(collectedResponses.get(i))) {
+                count++;
+                if (count == 2) {
+                    lastIndex = i;
+                    break;
+                }
             }
         }
 
@@ -66,10 +69,13 @@ public class ResponseCollector {
         // Extract the last list
         List<String> lastList = new ArrayList<>();
         for (int i = lastIndex + 1; i < collectedResponses.size(); i++) {
+            if ("|".equals(collectedResponses.get(i))) {
+                break; // Stop when encountering next "|"
+            }
             lastList.add(collectedResponses.get(i));
         }
 
-        // Remove the extracted last list and the "|" marker from accumulated responses
+        // Remove the extracted last list and the "|" markers from accumulated responses
         collectedResponses.subList(lastIndex, collectedResponses.size()).clear();
 
         return lastList;

@@ -61,9 +61,13 @@ class NameServerServiceImpl(pb2_grpc.NameServerServiceServicer):
 
                     if server_entry.qualifier == qualifier:
                         response.server.append(server_entry.address)
+                        response.server.append(server_entry.qualifier)
             # No qualifier given, return all servers for the given service
             else:
-                response.server.extend([server_entry.address for server_entry in service_entry.servers])
+                for server_entry in service_entry.servers:
+                    response.server.append(server_entry.address)
+                    response.server.append(server_entry.qualifier)
+
         if self.debugMode:
             print("[LOOKUP RESPONSE]:", response)
 

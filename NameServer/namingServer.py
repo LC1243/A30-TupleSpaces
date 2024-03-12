@@ -22,6 +22,7 @@ class NamingServer:
         #service exists
         service_entry = self.services[service]
 
+        # Address matches
         for server_entry in service_entry.servers:
             if server_entry.address == address:
                 return True

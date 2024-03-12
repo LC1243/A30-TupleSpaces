@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.tuplespaces.client.grpc;
 
 import com.google.protobuf.LazyStringArrayList;
+import com.google.protobuf.ProtocolStringList;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import pt.ulisboa.tecnico.nameServer.contract.NameServer;
@@ -24,6 +25,8 @@ public class ClientService {
 
     private ArrayList<String> targets = new ArrayList<String>();
 
+    private ArrayList<String> qualifiers = new ArrayList<String>();
+
     private boolean debugMode = false;
     OrderedDelayer delayer;
 
@@ -34,18 +37,19 @@ public class ClientService {
 
     private int clientId;
 
-    public ClientService(boolean debugMode, int numServers) {
+    public ClientService(boolean debugMode, int numServers, int clientId) {
 
         this.numServers = numServers;
         delayer = new OrderedDelayer(numServers);
         this.debugMode = debugMode;
         this.lookupServer();
 
-        this.clientId = (int) System.currentTimeMillis();
+        this.clientId = clientId;
 
         channels = new ManagedChannel[numServers];
         stubs = new TupleSpacesReplicaGrpc.TupleSpacesReplicaStub[numServers];
 
+        // Creates a channel and stub for every server
         for (int i = 0; i < numServers; i++) {
             channels[i] = ManagedChannelBuilder.forTarget(targets.get(i)).usePlaintext().build();
             stubs[i] = TupleSpacesReplicaGrpc.newStub(channels[i]);
@@ -81,10 +85,12 @@ public class ClientService {
             com.google.protobuf.ProtocolStringList servers = new LazyStringArrayList();
             servers = response.getServerList();
 
+            // Found servers
             if (!servers.isEmpty()) {
-                for(int i = 0; i < response.getServerCount(); i++) {
+                for(int i = 0; i < response.getServerCount() - 1; i += 2) {
                     String target = response.getServer(i);
                     targets.add(target);
+                    qualifiers.add(response.getServer(i+1));
                 }
 
             } else {
@@ -207,23 +213,25 @@ public class ClientService {
 
     public void sendTakeRequest(String tuple) {
 
-       //List<String> intersection = sendTakePhase1Request(tuple);
+       // obtain matching tuples from all servers
+       List<List<String>> lists = sendTakePhase1Request(tuple);
 
-        /*
-       if(intersection.isEmpty())
-           sendTakePhase1ReleaseRequest(tuple);
+       //find the intersection between matching tuples of all servers
+       List<String> intersection = findIntersection(lists);
 
+       //if intersection is null, release acquired locks and repeat the process
+       if(intersection.isEmpty()) {
+           sendTakePhase1ReleaseRequest();
+           sendTakeRequest(tuple);
+       }
 
-         */
        /*
        * TODO: In case a list returned by a server is empty (request rejected)
        *  release locks and repeat Phase1
        */
-        /*
+
        String toRemove = chooseTuple(intersection);
        sendTakePhase2Request(toRemove);
-
-       */
     }
 
     public List<String> findIntersection(List<List<String>> lists) {
@@ -243,7 +251,7 @@ public class ClientService {
     }
 
 
-    public List<String> sendTakePhase1Request(String pattern) {
+    public List<List<String>> sendTakePhase1Request(String pattern) {
 
         ResponseCollector c = new ResponseCollector();
 
@@ -281,9 +289,6 @@ public class ClientService {
             throw new RuntimeException(e);
         }
 
-        //remove the additional '|' in the end
-        c.removeLastElement();
-
         long n_lists = c.getNumberOfLists();
 
         List<List<String>> listOfLists = new ArrayList<>();
@@ -293,11 +298,10 @@ public class ClientService {
             listOfLists.add(list);
         }
 
-        return findIntersection(listOfLists);
-
+        return listOfLists;
     }
 
-    public void sendTakePhase1ReleaseRequest(String tuple){
+    public void sendTakePhase1ReleaseRequest(){
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
@@ -348,7 +352,7 @@ public class ClientService {
         for(int i = 0; i < numServers; i++) {
             //create requests for each server, with the new tuple
             TupleSpacesReplicaXuLiskov.TakePhase2Request request =
-                    TupleSpacesReplicaXuLiskov.TakePhase2Request.newBuilder().setClientId(clientId).build();
+                    TupleSpacesReplicaXuLiskov.TakePhase2Request.newBuilder().setClientId(clientId).setTuple(tuple).build();
             requests.add(request);
 
         }
@@ -364,12 +368,49 @@ public class ClientService {
         }
 
         try {
-            c.waitUntilAllListsAreRecieved(numServers);
+            c.waitUntilAllReceived(numServers);
         } catch(InterruptedException e) {
             throw new RuntimeException(e);
         }
 
-        System.out.print("OK\n" + tuple + "\n");
+        System.out.print("OK\n" + tuple + "\n\n");
+    }
+
+
+    public List<String> sendGetTupleSpacesStateRequest(String qualifier) {
+
+        ResponseCollector c = new ResponseCollector();
+
+        if (targets.isEmpty() || qualifiers.isEmpty()) {
+            System.err.println("No server addresses or qualifiers available.");
+            return new ArrayList<>(); // Return an empty list or handle accordingly
+        }
+
+        int index = this.qualifiers.indexOf(qualifier);
+
+        if(debugMode){
+            System.err.println("DEBUG: GetTupleSpaceStateRequest initialized correctly\n");
+        }
+
+        TupleSpacesReplicaXuLiskov.getTupleSpacesStateRequest request = TupleSpacesReplicaXuLiskov.getTupleSpacesStateRequest.newBuilder().build();
+
+        try {
+
+            stubs[index].getTupleSpacesState(request,  new ClientObserver<TupleSpacesReplicaXuLiskov.getTupleSpacesStateResponse>(c));
+            c.waitUntilAllListsAreRecieved(1);
+
+            System.out.println("OK");
+            if (debugMode){
+                System.err.println("DEBUG: GetTupleSpacesStateRequest finished correctly\n");
+            }
+            // Exception caught
+        } catch (StatusRuntimeException | InterruptedException e) {
+            System.out.println("Caught exception with description: " +
+                    ((e instanceof StatusRuntimeException) ? ((StatusRuntimeException) e).getStatus().getDescription() : e.getMessage()));
+            }
+
+        // Returns the list
+        return c.getLastListAndRemove();
     }
 
 

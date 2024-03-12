@@ -8,8 +8,10 @@ public class ServerState {
 
   private List<String> tuples;
 
+  /* take_ids[i] represents the client who locked tuple of index i (0 if not locked) */
   private List<Integer> take_ids;
 
+  /* take_locks[i] is 1 if tuple of index i is locked (0 otherwise) */
   private List<Integer> take_locks;
 
   public ServerState() {
@@ -33,6 +35,7 @@ public class ServerState {
 
   public synchronized void put(String tuple) {
     tuples.add(tuple);
+    // Initialize both values to zero (unlocked)
     take_ids.add(0);
     take_locks.add(0);
     notifyAll();
@@ -65,64 +68,53 @@ public class ServerState {
     return getMatchingTuple(pattern);
   }
 
-  private List<Integer> getAllMatchingTupleIndexes(String pattern) {
-    List<Integer> matchingIndexes = new ArrayList<>();
+  private List<String> getAllMatchingTuples(String pattern) {
+    List<String> matchingTuples = new ArrayList<>();
 
+    //Assure that the answer doesn't have repeated
+    List<String> tuplesSet = new ArrayList<>();
     for (int i = 0; i < this.tuples.size(); i++) {
       String tuple = this.tuples.get(i);
-      if (tuple.matches(pattern)) {
-        matchingIndexes.add(i);
+
+      if (tuple.matches(pattern) && !matchingTuples.contains(tuple)) {
+        matchingTuples.add(tuple);
       }
     }
 
-    return matchingIndexes.isEmpty() ? null : matchingIndexes;
+    return matchingTuples.isEmpty() ? null : matchingTuples;
   }
-
-  private List<String> getTuplesByIndexes(List<Integer> indexes) {
-    if (indexes == null || indexes.isEmpty()) {
-      return null;
-    }
-
-    List<String> tuplesByIndexes = new ArrayList<>();
-
-    for (int index : indexes) {
-      if (index >= 0 && index < this.tuples.size()) {
-        tuplesByIndexes.add(this.tuples.get(index));
-      }
-    }
-
-    return tuplesByIndexes.isEmpty() ? null : tuplesByIndexes;
-  }
-
 
 
   public synchronized List<String> takePhase1(String pattern, Integer clientId) {
-    List<Integer> matchingTuples = getAllMatchingTupleIndexes(pattern);
+    List<String> matchingTuples = getAllMatchingTuples(pattern);
 
     //while the tuple isn't present in the TupleSpace
     while (matchingTuples == null) {
 
       try {
-        //wait until tuple is available
+        //wait until a tuple is available
         wait();
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
-      matchingTuples = getAllMatchingTupleIndexes(pattern);
+      matchingTuples = getAllMatchingTuples(pattern);
     }
 
-    for (Integer tuple_index : matchingTuples) {
-      take_ids.set(tuple_index, clientId);
+    for (String tuple : matchingTuples) {
+      int tuple_index = this.tuples.indexOf(tuple);
 
-      if (take_locks.get(tuple_index) == 0)
+      // if the tuple is free, lock it
+      if (take_locks.get(tuple_index) == 0) {
         take_locks.set(tuple_index, 1);
+        take_ids.set(tuple_index, clientId);
+      }
 
       //reject request -> return empty list
       else
         return List.of();
     }
 
-    return getTuplesByIndexes(matchingTuples);
+    return matchingTuples;
 
   }
 
@@ -163,10 +155,11 @@ public class ServerState {
   public synchronized int takePhase2(String tuple, Integer clientId) {
     int tuple_index = tuples.indexOf(tuple);
 
+    // Check if clientId locked the tuple
     if(take_ids.get(tuple_index) == clientId && take_locks.get(tuple_index) == 1) {
-      swapAndRemoveLast(take_ids, tuple_index);
-      swapAndRemoveLast(take_locks, tuple_index);
-      swapAndRemoveLast(tuples, tuple_index);
+      take_ids.remove(tuple_index);
+      take_locks.remove(tuple_index);
+      tuples.remove(tuple_index);
 
       //remove remaining locks associated to clientId
       this.takePhase1Release(clientId);
@@ -178,10 +171,7 @@ public class ServerState {
   }
 
   public synchronized List<String> getTupleSpacesState() {
-    return this.tuples;
+    return new ArrayList<>(this.tuples);
   }
-
-
-
 
 }

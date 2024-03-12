@@ -21,6 +21,7 @@ public class ClientObserver<R> implements StreamObserver<R>  {
 
     @Override
     public void onNext(R response) {
+        // Checks the response type
         if (response instanceof PutResponse) {
             PutResponse putResponse = (PutResponse) response;
             collector.addString("OK");
@@ -35,25 +36,28 @@ public class ClientObserver<R> implements StreamObserver<R>  {
 
             List<String> matchingTuples = takePhase1Response.getReservedTuplesList();
 
-            if(collector.getCollectedResponses().isEmpty()) {
-                collector.addAllStrings(matchingTuples, true);
-                return;
-            }
-
-            collector.addAllStrings(matchingTuples, false);
+            // each list is delimited by a "|" in the beginning and in the end "|"
+            collector.addAllStrings(matchingTuples);
 
         } else if (response instanceof TakePhase1ReleaseResponse) {
-            // Handle TakePhase2Response
+            TakePhase1ReleaseResponse takePhase1ReleaseResponse = (TakePhase1ReleaseResponse) response;
+            collector.addString("OK");
 
         } else if (response instanceof  TakePhase2Response) {
+            TakePhase2Response takePhase2Response = (TakePhase2Response) response;
+            collector.addString("OK");
 
-        }
-            /*
         } else if (response instanceof getTupleSpacesStateResponse) {
             // Handle getTupleSpacesStateResponse
-        } else {
+            getTupleSpacesStateResponse getTupleSpacesStateResponse = (getTupleSpacesStateResponse) response;
+
+            List<String> tuples = getTupleSpacesStateResponse.getTupleList();
+
+            collector.addAllStrings(tuples);
+
+       } //else {
             // Handle other types of responses
-        }*/
+  //      }*/
     }
 
     @Override
