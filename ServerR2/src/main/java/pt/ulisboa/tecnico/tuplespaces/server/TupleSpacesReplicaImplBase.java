@@ -141,6 +141,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
 
         //Build response and remove tuple
         if (result == 1) {
+            System.out.println("Cliente " + clientId + " Desbloqueou o(s) tuplo(s)!");
 
             TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse response =
                     TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse.newBuilder().build();

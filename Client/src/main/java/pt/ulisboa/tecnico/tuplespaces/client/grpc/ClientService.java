@@ -271,6 +271,10 @@ public class ClientService {
             while(rejected) {
                 Random random = new Random();
                 try {
+                    rejectedQualifiers = getRejectedRequestsQualifiers(lists);
+                    System.out.println(rejectedQualifiers);
+
+
                     Thread.sleep(random.nextInt(5000));
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -447,8 +451,12 @@ public class ClientService {
                 TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest.newBuilder().setClientId(clientId).build();
 
         int id = this.qualifiers.indexOf(qualifier);
-
+        // FIXME: IS THIS CORRECT? Se nao puser, passa para a frente com qualificador null e ID = -1
+        if(id == -1){
+            return;
+        }
         try {
+            System.out.println("Server para release: " + qualifier);
             stubs[id].takePhase1Release(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
         } catch (StatusRuntimeException e) {
             System.out.println("Locks got released before the take operation finished");

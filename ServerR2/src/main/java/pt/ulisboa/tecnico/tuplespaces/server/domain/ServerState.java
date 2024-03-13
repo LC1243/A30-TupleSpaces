@@ -115,6 +115,7 @@ public class ServerState {
         take_ids.set(tuple_index, clientId);
         availableTuples.add(tuple);
       }
+      System.out.println("Tuplo " + tuple + ":    Locked? " + take_locks.get(tuple_index) + ", ID do Cliente: " + take_ids.get(tuple_index));
       // FIXME: Sleep random for second attempt -> Backoff
       // FIXME: Second attempt for all servers??? Or for the ones that returned an empty list
       // FIXME: Adaptar casos para maioria ou minoria
@@ -139,6 +140,7 @@ public class ServerState {
       if(take_ids.get(i) == clientId && take_locks.get(i) == 1) {
         take_locks.set(i, 0);
         take_ids.set(i, 0);
+        System.out.println("This Server released the tuple!");
       }
 
     }
