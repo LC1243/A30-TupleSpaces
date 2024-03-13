@@ -55,7 +55,7 @@ public class ServerMain {
             System.err.println("Error during server registration: " + e.getMessage());
             return;
         }
-        final BindableService impl = new TupleSpacesReplicaImplBase(debugMode);
+        final BindableService impl = new TupleSpacesReplicaImplBase(debugMode, args[1]);
 
         try {
 
@@ -85,7 +85,7 @@ public class ServerMain {
 
                     NameServerServiceGrpc.NameServerServiceBlockingStub stub1 = NameServerServiceGrpc.newBlockingStub(channel);
                     NameServer.DeleteRequest request2 = NameServer.DeleteRequest.newBuilder().setService("TupleSpace").
-                            setAddress(args[1]).setAddress("localhost:" + args[0]).build();
+                            setAddress("localhost:" + args[0]).build();
 
                     try {
                         //send delete request to the Name Server, and handle response

@@ -2,6 +2,7 @@ package pt.ulisboa.tecnico.tuplespaces.server.domain;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.TreeMap;
 
 public class ServerState {
@@ -14,10 +15,13 @@ public class ServerState {
   /* take_locks[i] is 1 if tuple of index i is locked (0 otherwise) */
   private List<Integer> take_locks;
 
-  public ServerState() {
+  private String qualifier;
+
+  public ServerState(String qualifier) {
     this.tuples = new ArrayList<String>();
     this.take_ids = new ArrayList<Integer>();
     this.take_locks = new ArrayList<Integer>();
+    this.qualifier = qualifier;
   }
 
   public boolean tuppleIsValid(String tuple) {
@@ -100,6 +104,8 @@ public class ServerState {
       matchingTuples = getAllMatchingTuples(pattern);
     }
 
+    List<String> availableTuples = new ArrayList<>();
+
     for (String tuple : matchingTuples) {
       int tuple_index = this.tuples.indexOf(tuple);
 
@@ -107,21 +113,23 @@ public class ServerState {
       if (take_locks.get(tuple_index) == 0) {
         take_locks.set(tuple_index, 1);
         take_ids.set(tuple_index, clientId);
+        availableTuples.add(tuple);
       }
-      // FIXME: I have tuples but all are locked -> empty list
-      // FIXME: I have some matching tuples that aren't blocked, and some that are -> returned not locked
-      // FIXME: Sleeo random for second attempt
+      // FIXME: Sleep random for second attempt -> Backoff
       // FIXME: Second attempt for all servers??? Or for the ones that returned an empty list
-      //reject request -> return empty list
-      else
-        return List.of();
+      // FIXME: Adaptar casos para maioria ou minoria
+      // Adicionar o qualificador no final da lista
+      // Se tamanho da lista == 1 (só tem qualificador), pedido rejeitado -> Se minoria, então release só desse servidor
+      // Se a maioria rejeita, release a todos os servidores
+      // Cuidado -> Não usar o qualificador na interseção para encontrar um tuplo comum
+      // ADICIONAR BACKOFF
     }
-
-    return matchingTuples;
-
+    availableTuples.add(qualifier);
+    return availableTuples;
   }
 
   public synchronized int takePhase1Release(Integer clientId) {
+    System.out.println("CLIENT ID: " + clientId);
     // Invalid ClientId
     if(clientId == 0)
       return 0;
@@ -139,27 +147,12 @@ public class ServerState {
 
   }
 
-  public <T> void swapAndRemoveLast(List<T> list, int index) {
-    if (list == null || index < 0 || index >= list.size() - 1) {
-      return;
-    }
-
-    // Get the element at the given index
-    T elementAtIndex = list.get(index);
-
-    // Swap the element at the given index with the last element
-    list.set(index, list.get(list.size() - 1));
-    list.set(list.size() - 1, elementAtIndex);
-
-    // Remove the last element
-    list.remove(list.size() - 1);
-  }
 
   public synchronized int takePhase2(String tuple, Integer clientId) {
     int tuple_index = tuples.indexOf(tuple);
 
     // Check if clientId locked the tuple
-    if(take_ids.get(tuple_index) == clientId && take_locks.get(tuple_index) == 1) {
+    if(Objects.equals(take_ids.get(tuple_index), clientId) && take_locks.get(tuple_index) == 1) {
       take_ids.remove(tuple_index);
       take_locks.remove(tuple_index);
       tuples.remove(tuple_index);

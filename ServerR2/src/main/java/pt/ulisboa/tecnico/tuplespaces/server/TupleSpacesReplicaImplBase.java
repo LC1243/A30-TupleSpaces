@@ -11,10 +11,11 @@ import static io.grpc.Status.INVALID_ARGUMENT;
 
 public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpacesReplicaImplBase {
 
-    private ServerState server = new ServerState();
+    private ServerState server;
     private boolean debugMode = false ;
-    public TupleSpacesReplicaImplBase(boolean debugMode) {
+    public TupleSpacesReplicaImplBase(boolean debugMode, String qualifier) {
         this.debugMode = debugMode;
+        this.server = new ServerState(qualifier);
     }
 
     @Override

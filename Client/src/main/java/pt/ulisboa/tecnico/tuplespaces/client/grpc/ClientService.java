@@ -13,10 +13,8 @@ import io.grpc.StatusRuntimeException;
 import pt.ulisboa.tecnico.tuplespaces.client.ResponseCollector;
 import pt.ulisboa.tecnico.tuplespaces.client.util.OrderedDelayer;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.grpc.Status.INVALID_ARGUMENT;
 
@@ -209,25 +207,95 @@ public class ClientService {
         }
     }
 
-    public void sendTakeRequest(String tuple) {
+    public static List<String> getRejectedRequestsQualifiers(List<List<String>> lists) {
+        return lists.stream()
+                .filter(list -> list.size() == 1)
+                .map(list -> list.get(0))
+                .collect(Collectors.toList());
+    }
 
+    public static int getRejectedRequestsQualifierIndex(List<List<String>> lists) {
+        for (int i = 0; i < lists.size(); i++) {
+            List<String> list = lists.get(i);
+            if (list.size() == 1) {
+                return i;
+            }
+        }
+        return -1; // Return -1 if no qualifier found
+    }
+
+    //int index = this.qualifiers.indexOf(qualifier);
+
+    public static String getSetDifference(List<String> set1, List<String> set2) {
+        // Assume set1 has 3 elements and set2 has 2 elements
+        // Find the element in set1 that's not in set2
+        for (String element : set1) {
+            if (!set2.contains(element)) {
+                return element;
+            }
+        }
+        // Return null if no difference found
+        return null;
+    }
+
+    public void sendTakeRequest(String tuple) {
        // obtain matching tuples from all servers
        List<List<String>> lists = sendTakePhase1Request(tuple);
 
-       boolean containsEmptyList = lists.stream().anyMatch(List::isEmpty);
+       List<String> rejectedQualifiers = getRejectedRequestsQualifiers(lists);
 
-       /* In case a list returned by a server is empty (request rejected)
+       System.out.println(rejectedQualifiers);
+        //FIXME: Add Backoff times (sleeps)
+       /* In case only a minority accepted the request
         *  release locks and repeat Phase1 */
-       if (containsEmptyList) {
-           sendTakePhase1ReleaseRequest();
+       if (rejectedQualifiers.size() >= 2) {
+           Random random = new Random();
+           try {
+               Thread.sleep(random.nextInt(5000));
+           } catch (InterruptedException e) {
+               e.printStackTrace();
+           }
+           //FIXME: Release only in the minority (The one we locked)
+           System.out.println("Release only in the minority");
+           List<String> qualifiers = new ArrayList<>(Arrays.asList("A", "B", "C"));
+
+           // Perform set difference
+           String difference = getSetDifference(qualifiers, rejectedQualifiers);
+           sendTakePhase1ReleaseRequestToMinority(difference);
            sendTakeRequest(tuple);
+       }
+        // Has 2 servers locked - repeats the take request operation only for the rejected server
+       else if (rejectedQualifiers.size() == 1) {
+           System.out.println("Release only in the majority");
+           boolean rejected = true;
+            while(rejected) {
+                Random random = new Random();
+                try {
+                    Thread.sleep(random.nextInt(5000));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                //FIXME: Request to Minority doesn't sleep -> Function GetDelay ??
+                List<String> list = sendTakePhase1RequestToMinority(tuple, rejectedQualifiers.get(0));
+                if(list.size() > 1) {
+                    int index = getRejectedRequestsQualifierIndex(lists);
+                    lists.set(index, list);
+                    System.out.println("LISTS AFTER BACKOFF AND TRY AGAIN " + lists);
+                    rejected = false;
+                }
+            }
        }
 
        //find the intersection between matching tuples of all servers
        List<String> intersection = findIntersection(lists);
 
-       //if intersection is null, release acquired locks and repeat the process
+       // Intersection between all sets of 2 of the 3 lists
+
+        //if intersection is null, release acquired locks and repeat the process
        if(intersection.isEmpty()) {
+           // FIXME: RELEASE ALL LOCKS? OR DON'T RELEASE ANY AND ASK FOR A TAKE REQUEST AGAIN
+           // FIXME: 2 HAVE INTERSECTION -> REPEAT REQUEST TO OTHER SERVER
+           // FIXME: NONE HAVE INTERSECTION -> RELEASE ALL LOCKS
            sendTakePhase1ReleaseRequest();
            sendTakeRequest(tuple);
        }
@@ -304,6 +372,39 @@ public class ClientService {
         return listOfLists;
     }
 
+    public List<String> sendTakePhase1RequestToMinority(String pattern, String qualifier) {
+
+        ResponseCollector c = new ResponseCollector();
+
+        if(debugMode){
+            System.err.println("DEBUG: Take Request initialized correctly\n");
+        }
+
+        TupleSpacesReplicaXuLiskov.TakePhase1Request request =
+                TupleSpacesReplicaXuLiskov.TakePhase1Request.newBuilder().setSearchPattern(pattern).setClientId(clientId).build();
+
+
+        int index = this.qualifiers.indexOf(qualifier);
+        //FIXME: HANDLE DELAYER TO THIS CASE -> only one request -> only one delay
+
+            try {
+                stubs[index].takePhase1(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1Response>(c));
+
+                // Exception caught
+            } catch (StatusRuntimeException e) {
+                System.out.println("Caught exception with description: " +
+                        e.getStatus().getDescription());
+            }
+
+        try {
+            c.waitUntilAllListsAreRecieved(1);
+        } catch(InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        return c.getLastListAndRemove();
+    }
+
     public void sendTakePhase1ReleaseRequest(){
         ResponseCollector c = new ResponseCollector();
 
@@ -333,14 +434,38 @@ public class ClientService {
         }
     }
 
+
+    public void sendTakePhase1ReleaseRequestToMinority(String qualifier ){
+
+        ResponseCollector c = new ResponseCollector();
+
+        if(debugMode){
+            System.err.println("DEBUG: Take Phase 1 to Minority Request initialized correctly\n");
+        }
+
+        TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest request =
+                TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest.newBuilder().setClientId(clientId).build();
+
+        int id = this.qualifiers.indexOf(qualifier);
+
+        try {
+            stubs[id].takePhase1Release(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
+        } catch (StatusRuntimeException e) {
+            System.out.println("Locks got released before the take operation finished");
+            if (debugMode) {
+                System.err.println("DEBUG: TAKE PHASE 1 RELEASE command stopped.\n");
+            }
+        }
+
+    }
+
+
     public String chooseRandomTuple(List<String> intersection) {
         Random random = new Random();
         int randomIndex = random.nextInt(intersection.size());
 
-        //Get random tuple
-        String randomTuple = intersection.get(randomIndex);
-
-        return randomTuple;
+        //Return random tuple
+        return intersection.get(randomIndex);
     }
 
     public void sendTakePhase2Request(String tuple){
