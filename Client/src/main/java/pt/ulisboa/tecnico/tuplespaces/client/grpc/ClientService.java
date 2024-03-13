@@ -180,13 +180,10 @@ public class ClientService {
             TupleSpacesReplicaXuLiskov.ReadRequest request = TupleSpacesReplicaXuLiskov.ReadRequest.newBuilder().setSearchPattern(tuple).build();
             requests.add(request);
 
-
         }
 
-        Iterator<Integer> iterator = delayer.iterator(); // Get the iterator from the delayer
 
-        while (c.getCollectedResponses().isEmpty() && iterator.hasNext()) {
-            Integer id = iterator.next(); // Get the next element from the iterator
+        for(Integer id : delayer) {
             try {
                 // Send the request to the server with the id
                 stubs[id].read(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.ReadResponse>(c));
@@ -195,6 +192,7 @@ public class ClientService {
                 // Handle status runtime exception
                 System.out.println("Caught exception with description: " + e.getStatus().getDescription());
             }
+
         }
 
         //wait for the first response
@@ -216,6 +214,15 @@ public class ClientService {
        // obtain matching tuples from all servers
        List<List<String>> lists = sendTakePhase1Request(tuple);
 
+       boolean containsEmptyList = lists.stream().anyMatch(List::isEmpty);
+
+       /* In case a list returned by a server is empty (request rejected)
+        *  release locks and repeat Phase1 */
+       if (containsEmptyList) {
+           sendTakePhase1ReleaseRequest();
+           sendTakeRequest(tuple);
+       }
+
        //find the intersection between matching tuples of all servers
        List<String> intersection = findIntersection(lists);
 
@@ -225,12 +232,8 @@ public class ClientService {
            sendTakeRequest(tuple);
        }
 
-       /*
-       * TODO: In case a list returned by a server is empty (request rejected)
-       *  release locks and repeat Phase1
-       */
 
-       String toRemove = chooseTuple(intersection);
+       String toRemove = chooseRandomTuple(intersection);
        sendTakePhase2Request(toRemove);
     }
 
@@ -330,7 +333,7 @@ public class ClientService {
         }
     }
 
-    public String chooseTuple(List<String> intersection) {
+    public String chooseRandomTuple(List<String> intersection) {
         Random random = new Random();
         int randomIndex = random.nextInt(intersection.size());
 

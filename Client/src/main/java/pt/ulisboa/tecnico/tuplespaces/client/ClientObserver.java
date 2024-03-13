@@ -37,6 +37,7 @@ public class ClientObserver<R> implements StreamObserver<R>  {
             List<String> matchingTuples = takePhase1Response.getReservedTuplesList();
 
             // each list is delimited by a "|" in the beginning and in the end "|"
+            // Example: [a,b,c] -> [|,a,b,c,|]
             collector.addAllStrings(matchingTuples);
 
         } else if (response instanceof TakePhase1ReleaseResponse) {

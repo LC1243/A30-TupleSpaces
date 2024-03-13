@@ -108,7 +108,10 @@ public class ServerState {
         take_locks.set(tuple_index, 1);
         take_ids.set(tuple_index, clientId);
       }
-
+      // FIXME: I have tuples but all are locked -> empty list
+      // FIXME: I have some matching tuples that aren't blocked, and some that are -> returned not locked
+      // FIXME: Sleeo random for second attempt
+      // FIXME: Second attempt for all servers??? Or for the ones that returned an empty list
       //reject request -> return empty list
       else
         return List.of();
