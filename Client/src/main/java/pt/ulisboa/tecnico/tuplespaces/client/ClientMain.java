@@ -1,7 +1,5 @@
 package pt.ulisboa.tecnico.tuplespaces.client;
 
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import pt.ulisboa.tecnico.nameServer.contract.NameServer;
 import pt.ulisboa.tecnico.nameServer.contract.NameServerServiceGrpc;
 import pt.ulisboa.tecnico.tuplespaces.client.grpc.ClientService;
@@ -23,6 +21,12 @@ public class ClientMain {
         }
 
         clientId = Integer.parseInt(args[0]);
+
+        //we don't allow the clientId to be zero, since the server initializes the ids associated to tuples as zero
+        if (clientId == 0) {
+            System.err.println("\nClientId cannot be zero! Please run the program again, with another id!\n");
+            return;
+        }
 
         CommandProcessor parser = new CommandProcessor(new ClientService(debugMode, ClientMain.numServers, clientId));
         parser.parseInput();

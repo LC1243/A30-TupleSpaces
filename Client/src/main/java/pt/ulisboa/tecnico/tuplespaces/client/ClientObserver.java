@@ -23,6 +23,7 @@ public class ClientObserver<R> implements StreamObserver<R>  {
     public void onNext(R response) {
         // Checks the response type
         if (response instanceof PutResponse) {
+            //Put Request went successfully
             PutResponse putResponse = (PutResponse) response;
             collector.addString("OK");
 
@@ -36,15 +37,19 @@ public class ClientObserver<R> implements StreamObserver<R>  {
 
             List<String> matchingTuples = takePhase1Response.getReservedTuplesList();
 
-            // each list is delimited by a "|" in the beginning and in the end "|"
-            // Example: [a,b,c] -> [|,a,b,c,|]
+            /* each list is delimited by a "|" in the beginning and in the end "|"
+             * plus the qualifier is also sent by the server, so we can know which servers accepted/ rejected the take request
+             * Example: server with qualifier A: [<a>,<b>,<c>, A] -> [|,<a>,<b>,<c>, A|]
+             */
             collector.addAllStrings(matchingTuples);
 
         } else if (response instanceof TakePhase1ReleaseResponse) {
+            //Release Request went successfully
             TakePhase1ReleaseResponse takePhase1ReleaseResponse = (TakePhase1ReleaseResponse) response;
             collector.addString("OK");
 
         } else if (response instanceof  TakePhase2Response) {
+            //Server removed the tuple successfully
             TakePhase2Response takePhase2Response = (TakePhase2Response) response;
             collector.addString("OK");
 
@@ -54,11 +59,13 @@ public class ClientObserver<R> implements StreamObserver<R>  {
 
             List<String> tuples = getTupleSpacesStateResponse.getTupleList();
 
+            /* It follows the same behaviour as for delimiting the list with '|',
+             * but this time the server doesn't send us, his qualifier
+             */
             collector.addAllStrings(tuples);
 
-       } //else {
-            // Handle other types of responses
-  //      }*/
+       }
+
     }
 
     @Override

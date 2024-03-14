@@ -3,7 +3,6 @@ package pt.ulisboa.tecnico.tuplespaces.server.domain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.TreeMap;
 
 public class ServerState {
 
@@ -15,6 +14,7 @@ public class ServerState {
   /* take_locks[i] is 1 if tuple of index i is locked (0 otherwise) */
   private List<Integer> take_locks;
 
+  // the server qualifier
   private String qualifier;
 
   public ServerState(String qualifier) {
@@ -75,7 +75,8 @@ public class ServerState {
   private List<String> getAllMatchingTuples(String pattern) {
     List<String> matchingTuples = new ArrayList<>();
 
-    //Assure that the answer doesn't have repeated
+    //Assure that the answer doesn't have repeated tuples
+    // allowing to another clients use the other tuples (possibly for a take operation)
     List<String> tuplesSet = new ArrayList<>();
     for (int i = 0; i < this.tuples.size(); i++) {
       String tuple = this.tuples.get(i);
@@ -109,41 +110,28 @@ public class ServerState {
     for (String tuple : matchingTuples) {
       int tuple_index = this.tuples.indexOf(tuple);
 
-      // if the tuple is free, lock it
+      // if the tuple is free, lock it and associate it with the respective ClientId
       if (take_locks.get(tuple_index) == 0) {
-        System.out.println("Tuple " + this.tuples.get(tuple_index) + " Locked!");
         take_locks.set(tuple_index, 1);
         take_ids.set(tuple_index, clientId);
         availableTuples.add(tuple);
       }
-      System.out.println("Tuplo " + tuple + ":    Locked? " + take_locks.get(tuple_index) + ", ID do Cliente: " + take_ids.get(tuple_index));
-      // FIXME: Sleep random for second attempt -> Backoff
-      // FIXME: Second attempt for all servers??? Or for the ones that returned an empty list
-      // FIXME: Adaptar casos para maioria ou minoria
-      // Adicionar o qualificador no final da lista
-      // Se tamanho da lista == 1 (só tem qualificador), pedido rejeitado -> Se minoria, então release só desse servidor
-      // Se a maioria rejeita, release a todos os servidores
-      // Cuidado -> Não usar o qualificador na interseção para encontrar um tuplo comum
-      // ADICIONAR BACKOFF
+
     }
     availableTuples.add(qualifier);
     return availableTuples;
   }
 
   public synchronized int takePhase1Release(Integer clientId) {
-    // Invalid ClientId
+    // Invalid ClientId (clientId 0 is reserved for tuples initialization)
     if(clientId == 0)
       return 0;
-    System.out.println("take_ids_size e clientID (antes do unlock): " + this.take_ids.size() + " " + clientId);
     for (int i = 0; i < this.take_ids.size(); i++) {
 
-      //release Locks
-      System.out.println(take_ids.get(i) + " " + take_locks.get(i) + " !");
+      //release Locks acquired by the client with id clientId
       if(Objects.equals(take_ids.get(i), clientId) && take_locks.get(i) == 1) {
-        System.out.println("Tuple " + this.tuples.get(i) + " Unlocked!");
         take_locks.set(i, 0);
         take_ids.set(i, 0);
-        System.out.println("This Server released the tuple!");
       }
 
     }
@@ -154,21 +142,24 @@ public class ServerState {
 
 
   public synchronized int takePhase2(String tuple, Integer clientId) {
-    int tuple_index = tuples.indexOf(tuple);
+    // Since we locked a tuple in tuples , we have to perform a loop
+    // to find the exact tuple we locked, characterized by its clientId.
+    // This way we avoid the problem of trying to remove a tuple that may be the same
+    // as the one we should remove, but doesn't have the correct clientId.
+    for (int i = 0; i < tuples.size(); i++) {
+      if (Objects.equals(take_ids.get(i), clientId) && take_locks.get(i) == 1
+              && tuple.equals(this.tuples.get(i))) {
+        take_ids.remove(i);
+        take_locks.remove(i);
+        tuples.remove(i);
 
-    // Check if clientId locked the tuple
-    if(Objects.equals(take_ids.get(tuple_index), clientId) && take_locks.get(tuple_index) == 1) {
-      take_ids.remove(tuple_index);
-      take_locks.remove(tuple_index);
-      tuples.remove(tuple_index);
+        //remove remaining locks associated to clientId
+        this.takePhase1Release(clientId);
 
-      //remove remaining locks associated to clientId
-      this.takePhase1Release(clientId);
-
-      return 1;
+        return 1;
+      }
     }
-
-    return 1;
+      return 0;
   }
 
   public synchronized List<String> getTupleSpacesState() {

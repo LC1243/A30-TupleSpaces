@@ -14,18 +14,14 @@ public class ResponseCollector {
         collectedResponses.add(s);
         notifyAll();
     }
+
+    /* This function is used to save a list in the response collector,
+    which is delimited by an '|' in the beginning and in the end */
     synchronized public void addAllStrings(List<String> strings) {
         collectedResponses.add("|");
         collectedResponses.addAll(strings);
         collectedResponses.add("|");
         notifyAll();
-    }
-    synchronized public String getStrings() {
-        String res = new String();
-        for (String s : collectedResponses) {
-            res = res.concat(s);
-        }
-        return res;
     }
 
     synchronized public void waitUntilAllReceived(int n) throws InterruptedException {
@@ -33,42 +29,45 @@ public class ResponseCollector {
             wait();
     }
 
+    /* Since the lists have a '|' in the beginning and in the end
+    the number of lists is the number of '|' dividing by 2 */
     synchronized public long getNumberOfLists() {
         return collectedResponses.stream()
                 .filter(element -> element.equals("|"))
                 .count() / 2;
     }
 
-    synchronized  public void waitUntilAllListsAreRecieved(int n) throws InterruptedException {
+    synchronized  public void waitUntilAllListsAreReceived(int n) throws InterruptedException {
         while(this.getNumberOfLists() < n)
             wait();
     }
 
+    /* Since each list is saved in the response collector is delimited by a '|'
+     * we loop through the response collector from the end to the beginning
+     * to find the '|' that represents the beginning of a list (the 2nd we found),
+     *  so we can extract that last list
+     */
     synchronized public List<String> getLastListAndRemove() {
-        if (collectedResponses.isEmpty()) {
-            return null; // No accumulated responses
-        }
-
         // Find the last occurrence of "|" in the accumulated responses
-        int lastIndex = -1;
+        int begginingIndex = -1;
         int count = 0;
         for (int i = collectedResponses.size() - 1; i >= 0; i--) {
             if ("|".equals(collectedResponses.get(i))) {
                 count++;
                 if (count == 2) {
-                    lastIndex = i;
+                    begginingIndex = i;
                     break;
                 }
             }
         }
 
-        if (lastIndex == -1) {
+        if (begginingIndex == -1) {
             return null; // No "|" found, return null
         }
 
         // Extract the last list
         List<String> lastList = new ArrayList<>();
-        for (int i = lastIndex + 1; i < collectedResponses.size(); i++) {
+        for (int i = begginingIndex + 1; i < collectedResponses.size(); i++) {
             if ("|".equals(collectedResponses.get(i))) {
                 break; // Stop when encountering next "|"
             }
@@ -76,27 +75,14 @@ public class ResponseCollector {
         }
 
         // Remove the extracted last list and the "|" markers from accumulated responses
-        collectedResponses.subList(lastIndex, collectedResponses.size()).clear();
+        collectedResponses.subList(begginingIndex, collectedResponses.size()).clear();
 
         return lastList;
     }
 
+    //To get the first response we got in a read request
     synchronized public String getFirstCollectedResponse() {
         return this.collectedResponses.get(0);
-    }
-
-    synchronized public ArrayList<String> getCollectedResponses() {
-        return collectedResponses;
-    }
-
-    synchronized public void setCollectedResponses(ArrayList<String> collectedResponses) {
-        this.collectedResponses = collectedResponses;
-    }
-
-    synchronized public void removeLastElement() {
-        if (!collectedResponses.isEmpty()) {
-            collectedResponses.remove(collectedResponses.size() - 1);
-        }
     }
 
 }

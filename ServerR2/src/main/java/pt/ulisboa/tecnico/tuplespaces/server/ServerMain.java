@@ -7,8 +7,6 @@ import static io.grpc.Status.INVALID_ARGUMENT;
 
 import pt.ulisboa.tecnico.nameServer.contract.NameServer;
 import pt.ulisboa.tecnico.nameServer.contract.NameServerServiceGrpc;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.TupleSpacesReplicaGrpc;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.TupleSpacesReplicaXuLiskov;
 
 import java.util.concurrent.CountDownLatch;
 

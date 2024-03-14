@@ -2,7 +2,6 @@ package pt.ulisboa.tecnico.tuplespaces.client;
 
 import pt.ulisboa.tecnico.tuplespaces.client.grpc.ClientService;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
@@ -195,7 +194,8 @@ public class CommandProcessor {
       // Gets the qualifier
       int qualifier = indexOfServerQualifier(split[1]);
       if (qualifier == -1)
-          System.out.println("Invalid server qualifier");
+          //FIXME: Debug ou exception?
+          System.err.println("Invalid server qualifier");
 
       Integer time;
 
