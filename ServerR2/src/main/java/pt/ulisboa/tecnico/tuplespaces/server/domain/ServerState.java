@@ -111,6 +111,7 @@ public class ServerState {
 
       // if the tuple is free, lock it
       if (take_locks.get(tuple_index) == 0) {
+        System.out.println("Tuple " + this.tuples.get(tuple_index) + " Locked!");
         take_locks.set(tuple_index, 1);
         take_ids.set(tuple_index, clientId);
         availableTuples.add(tuple);
@@ -130,14 +131,16 @@ public class ServerState {
   }
 
   public synchronized int takePhase1Release(Integer clientId) {
-    System.out.println("CLIENT ID: " + clientId);
     // Invalid ClientId
     if(clientId == 0)
       return 0;
+    System.out.println("take_ids_size e clientID (antes do unlock): " + this.take_ids.size() + " " + clientId);
     for (int i = 0; i < this.take_ids.size(); i++) {
 
       //release Locks
-      if(take_ids.get(i) == clientId && take_locks.get(i) == 1) {
+      System.out.println(take_ids.get(i) + " " + take_locks.get(i) + " !");
+      if(Objects.equals(take_ids.get(i), clientId) && take_locks.get(i) == 1) {
+        System.out.println("Tuple " + this.tuples.get(i) + " Unlocked!");
         take_locks.set(i, 0);
         take_ids.set(i, 0);
         System.out.println("This Server released the tuple!");

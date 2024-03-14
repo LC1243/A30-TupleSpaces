@@ -239,7 +239,7 @@ public class ClientService {
     }
 
     public void sendTakeRequest(String tuple) {
-       // obtain matching tuples from all servers
+        // obtain matching tuples from all servers
        List<List<String>> lists = sendTakePhase1Request(tuple);
 
        List<String> rejectedQualifiers = getRejectedRequestsQualifiers(lists);
@@ -303,7 +303,6 @@ public class ClientService {
            sendTakePhase1ReleaseRequest();
            sendTakeRequest(tuple);
        }
-
 
        String toRemove = chooseRandomTuple(intersection);
        sendTakePhase2Request(toRemove);
@@ -469,6 +468,9 @@ public class ClientService {
 
 
     public String chooseRandomTuple(List<String> intersection) {
+        if(intersection.size() == 0){
+            System.out.println("ChooseRandomTuple recebe interseção vazia");
+        }
         Random random = new Random();
         int randomIndex = random.nextInt(intersection.size());
 
