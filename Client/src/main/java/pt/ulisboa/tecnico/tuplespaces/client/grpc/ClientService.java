@@ -35,6 +35,16 @@ public class ClientService {
 
     private int clientId;
 
+    private static long INITIAL_BACKOFF_DELAY_MS = 1000; // Maximum delay in  milliseconds
+
+    private static long MAX_BACKOFF_DELAY_MS = 30000; // Maximum delay in milliseconds
+
+    private static double BACKOFF_MULTIPLIER = 2.0; //  backoff multiplier
+
+    private static final int  MAX_ATTEMPTS = 100 ;
+
+    private int n_attempts = 0;
+
     public ClientService(boolean debugMode, int numServers, int clientId) {
 
         this.numServers = numServers;
@@ -238,7 +248,7 @@ public class ClientService {
         return null;
     }
 
-    public void sendTakeRequest(String tuple) {
+    public int sendTakeRequest(String tuple) {
         // obtain matching tuples from all servers
        List<List<String>> lists = sendTakePhase1Request(tuple);
 
@@ -249,45 +259,55 @@ public class ClientService {
        /* In case only a minority accepted the request
         *  release locks and repeat Phase1 */
        if (rejectedQualifiers.size() >= 2) {
-           Random random = new Random();
-           try {
-               Thread.sleep(random.nextInt(5000));
-           } catch (InterruptedException e) {
-               e.printStackTrace();
-           }
-           //FIXME: Release only in the minority (The one we locked)
-           System.out.println("Release only in the minority");
-           List<String> qualifiers = new ArrayList<>(Arrays.asList("A", "B", "C"));
-
+           BACKOFF_MULTIPLIER = 4.0;
+           INITIAL_BACKOFF_DELAY_MS = 2000;
+           n_attempts = 0;
            // Perform set difference
-           String difference = getSetDifference(qualifiers, rejectedQualifiers);
-           sendTakePhase1ReleaseRequestToMinority(difference);
-           sendTakeRequest(tuple);
+           if(rejectedQualifiers.size() == 2){
+               System.out.println("Release only in the minority");
+               List<String> qualifiers = new ArrayList<>(Arrays.asList("A", "B", "C"));
+               System.out.println("DIFFERENCE: " +  qualifiers + " - " + rejectedQualifiers);
+               String difference = getSetDifference(qualifiers, rejectedQualifiers);
+               sendTakePhase1ReleaseRequestToMinority(difference);
+           }
+           while (n_attempts < MAX_ATTEMPTS) {
+               long backoffDelay = calculateBackoffDelay(n_attempts);
+               try {
+                   Thread.sleep(backoffDelay);
+               } catch (InterruptedException e) {
+                   e.printStackTrace();
+               }
+               n_attempts++;
+               return sendTakeRequest(tuple);
+           }
+
+           //FIXME: Release only in the minority (The one we locked)
+
        }
         // Has 2 servers locked - repeats the take request operation only for the rejected server
        else if (rejectedQualifiers.size() == 1) {
            System.out.println("Release only in the majority");
-           boolean rejected = true;
-            while(rejected) {
-                Random random = new Random();
-                try {
-                    rejectedQualifiers = getRejectedRequestsQualifiers(lists);
-                    System.out.println(rejectedQualifiers);
+           BACKOFF_MULTIPLIER = 2.0;
+           INITIAL_BACKOFF_DELAY_MS = 1000;
+           n_attempts = 0;
+           while (n_attempts < MAX_ATTEMPTS) {
+               long backoffDelay = calculateBackoffDelay(n_attempts);
+               try {
+                   Thread.sleep(backoffDelay);
+               } catch (InterruptedException e) {
+                   e.printStackTrace();
+               }
 
-
-                    Thread.sleep(random.nextInt(5000));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                //FIXME: Request to Minority doesn't sleep -> Function GetDelay ??
-                List<String> list = sendTakePhase1RequestToMinority(tuple, rejectedQualifiers.get(0));
-                if(list.size() > 1) {
-                    int index = getRejectedRequestsQualifierIndex(lists);
-                    lists.set(index, list);
-                    System.out.println("LISTS AFTER BACKOFF AND TRY AGAIN " + lists);
-                    rejected = false;
-                }
-            }
+               //FIXME: Request to Minority doesn't sleep -> Function GetDelay ??
+               List<String> list = sendTakePhase1RequestToMinority(tuple, rejectedQualifiers.get(0));
+               if(list.size() > 1) {
+                   int index = getRejectedRequestsQualifierIndex(lists);
+                   lists.set(index, list);
+                   System.out.println("LISTS AFTER BACKOFF AND TRY AGAIN " + lists);
+                   break;
+               }
+               n_attempts++;
+           }
        }
 
        //find the intersection between matching tuples of all servers
@@ -301,11 +321,13 @@ public class ClientService {
            // FIXME: 2 HAVE INTERSECTION -> REPEAT REQUEST TO OTHER SERVER
            // FIXME: NONE HAVE INTERSECTION -> RELEASE ALL LOCKS
            sendTakePhase1ReleaseRequest();
-           sendTakeRequest(tuple);
+           return sendTakeRequest(tuple);
        }
 
        String toRemove = chooseRandomTuple(intersection);
        sendTakePhase2Request(toRemove);
+       System.out.println("FINISHED");
+       return 1;
     }
 
     public List<String> findIntersection(List<List<String>> lists) {
@@ -468,7 +490,7 @@ public class ClientService {
 
 
     public String chooseRandomTuple(List<String> intersection) {
-        if(intersection.size() == 0){
+        if(intersection.isEmpty()){
             System.out.println("ChooseRandomTuple recebe interseção vazia");
         }
         Random random = new Random();
@@ -549,6 +571,27 @@ public class ClientService {
 
         // Returns the list
         return c.getLastListAndRemove();
+    }
+
+
+    public static void exponentialBackoff(int maxAttempts) {
+        int backoffAttempts = 0;
+        while (backoffAttempts < maxAttempts) {
+            long backoffDelay = calculateBackoffDelay(backoffAttempts);
+            try {
+                Thread.sleep(backoffDelay);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            // Outras operações de backoff, se necessário
+            // ...
+            backoffAttempts++;
+        }
+    }
+
+    private static long calculateBackoffDelay(int attempt) {
+        long backoffDelay = (long) (INITIAL_BACKOFF_DELAY_MS * Math.pow(BACKOFF_MULTIPLIER, attempt));
+        return Math.min(backoffDelay, MAX_BACKOFF_DELAY_MS);
     }
 
 
