@@ -14,7 +14,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
     private boolean debugMode = false;
     public TupleSpacesReplicaImplBase(boolean debugMode, String qualifier) {
         this.debugMode = debugMode;
-        this.server = new ServerState(qualifier);
+        this.server = new ServerState(debugMode, qualifier);
     }
 
     @Override

@@ -17,11 +17,14 @@ public class ServerState {
   // the server qualifier
   private String qualifier;
 
-  public ServerState(String qualifier) {
+  private boolean debugMode;
+
+  public ServerState(boolean debugMode, String qualifier) {
     this.tuples = new ArrayList<String>();
     this.take_ids = new ArrayList<Integer>();
     this.take_locks = new ArrayList<Integer>();
     this.qualifier = qualifier;
+    this.debugMode = debugMode;
   }
 
   public boolean tuppleIsValid(String tuple) {
@@ -62,6 +65,9 @@ public class ServerState {
     while (tuple == null) {
 
       try {
+        if(debugMode){
+          System.err.println("DEBUG: READ is waiting for tuple of pattern " + pattern + "\n");
+        }
         //wait until tuple is available
         wait();
       } catch (InterruptedException e) {
@@ -96,6 +102,9 @@ public class ServerState {
     while (matchingTuples == null) {
 
       try {
+        if(debugMode){
+          System.err.println("DEBUG: TAKE PHASE 1 is waiting for tuple of pattern " + pattern + "\n");
+        }
         //wait until a tuple is available
         wait();
       } catch (InterruptedException e) {
@@ -114,6 +123,10 @@ public class ServerState {
         take_locks.set(tuple_index, 1);
         take_ids.set(tuple_index, clientId);
         availableTuples.add(tuple);
+
+        if(debugMode){
+          System.err.println("DEBUG: Client " + clientId + " locked tuple " + tuples.get(tuple_index) + "\n");
+        }
       }
 
     }
@@ -134,6 +147,10 @@ public class ServerState {
       if(Objects.equals(take_ids.get(i), clientId) && take_locks.get(i) == 1) {
         take_locks.set(i, 0);
         take_ids.set(i, 0);
+
+        if(debugMode){
+          System.err.println("DEBUG: Client " + clientId + " unlocked tuple " + tuples.get(i) + "\n");
+        }
       }
 
     }
@@ -154,7 +171,10 @@ public class ServerState {
         take_ids.remove(i);
         take_locks.remove(i);
         tuples.remove(i);
-
+        
+        if(debugMode){
+          System.err.println("DEBUG: Client " + clientId + " removed tuple " + tuple + "\n");
+        }
         //remove remaining locks associated to clientId
         this.takePhase1Release(clientId);
 
