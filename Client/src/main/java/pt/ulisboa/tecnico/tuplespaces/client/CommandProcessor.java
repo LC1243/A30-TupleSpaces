@@ -194,9 +194,7 @@ public class CommandProcessor {
       // Gets the qualifier
       int qualifier = indexOfServerQualifier(split[1]);
       if (qualifier == -1)
-          //FIXME: Debug ou exception?
           System.err.println("Invalid server qualifier");
-
       Integer time;
 
       // checks if input String can be parsed as an Integer

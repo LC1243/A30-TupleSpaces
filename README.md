@@ -83,9 +83,9 @@ python -m pip install grpcio-tools
 deactivate
 ```
 
-### Running
+## Running
 
-**Contract** 
+### Contract
 <br> You should run these command in Contract directory
 ```s
 mvn install
@@ -100,23 +100,37 @@ mvn exec:exec
 ```s
 python3 server.py
 ```
-**Server R1** (without arguments, will run on localhost, port 2001, with qualifier A)
-<br> You should run these command in ServerR1 directory
-
-```s
-mvn compile exec:java
-```
-Another way to run Server R1 (if you wish to run with another arguments, the qualifier should still be A)
-```s
-mvn exec:java -Dexec.args="2001 A"
-```
-
-**Client** (will run without arguments)
-<br> You should run this command in Contract directory
+### Servers
+**Server R2** (without arguments, will run on localhost, port 2001, with qualifier A)
+<br> You should run these commands in ServerR2 directory
+<br> You should run 3 different servers with different ports and qualifiers (A, B or C)
+<br> <br> For example:
+- Server 1 (localhost, port 2001, qualifier A)
 ```s
 mvn compile exec:java
 ```
 
+- Server 2 (localhost, port 2002, qualifier B)
+```s
+mvn exec:java -Dexec.args="2002 B"
+```
+
+- Server 3 (localhost, port 2003, qualifier C)
+```s
+mvn exec:java -Dexec.args="2003 C"
+```
+
+# Client 
+(without arguments, will have 1 as his clientId)
+<br> You should run these commands in Client directory
+```s
+mvn compile exec:java
+```
+
+<br>If you wish to run it with another Id, you can run it the following way
+```s
+mvn exec:java -Dexec.args="7"
+```
 ### Debug Mode
 
-You can run the Client, ServerR1 and the NameServer with ```-debug``` flag, to see what requests they are handling while running the project.
+You can run the Client, ServerR2 and the NameServer with ```-debug``` flag, to see what requests they are handling while running the project.

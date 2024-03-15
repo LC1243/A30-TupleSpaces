@@ -38,8 +38,8 @@ public class ClientObserver<R> implements StreamObserver<R>  {
             List<String> matchingTuples = takePhase1Response.getReservedTuplesList();
 
             /* each list is delimited by a "|" in the beginning and in the end "|"
-             * plus the qualifier is also sent by the server, so we can know which servers accepted/ rejected the take request
-             * Example: server with qualifier A: [<a>,<b>,<c>, A] -> [|,<a>,<b>,<c>, A|]
+             * plus the qualifier is also sent by the server, so we can know which servers accepted/rejected the take request
+             * Example: server with qualifier A: [<a>,<b>,<c>, A] -> [|,<a>,<b>,<c>, A,|]
              */
             collector.addAllStrings(matchingTuples);
 
@@ -60,7 +60,8 @@ public class ClientObserver<R> implements StreamObserver<R>  {
             List<String> tuples = getTupleSpacesStateResponse.getTupleList();
 
             /* It follows the same behaviour as for delimiting the list with '|',
-             * but this time the server doesn't send us, his qualifier
+             * but this time the server doesn't send us his qualifier since we know
+             *  which server replied to us
              */
             collector.addAllStrings(tuples);
 

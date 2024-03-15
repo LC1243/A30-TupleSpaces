@@ -7,9 +7,10 @@ import java.util.stream.Collectors;
 
 //Mostly are auxiliary functions used for the take command
 public class TakeUtils {
+
     public static List<String> getRejectedRequestsQualifiers(List<List<String>> lists) {
         //Since we have the qualifiers of each server at the end position of its list. If the list.size == 1
-        // that means we only have the qualifier, none of the tuples matched . So we know the server rejected the request
+        // that means we only have the qualifier, none of the tuples matched. So we know the server rejected the request
         return lists.stream()
                 .filter(list -> list.size() == 1)
                 .map(list -> list.get(0))
@@ -26,6 +27,12 @@ public class TakeUtils {
         return -1; // Return -1 if no qualifier found
     }
 
+
+    /* Used when a client sent a take request, which only was accepted by 1 server
+     * For instance if A and B, rejected his take request
+     * By doing setDifference([A,B,C], [B, C]) we get A, the server we should release
+     * the locks since this client only has a minority of locks
+     */
     public static String getSetDifference(List<String> set1, List<String> set2) {
         // Assume set1 has 3 elements and set2 has 2 elements
         // Find the element in set1 that's not in set2
@@ -38,6 +45,7 @@ public class TakeUtils {
         return null;
     }
 
+    // Finds the intersection between the available tuples at the 3 servers
     public List<String> findIntersection(List<List<String>> lists) {
         // Return an empty list if there are fewer than two lists
         if (lists == null || lists.size() < 2) {
@@ -55,6 +63,7 @@ public class TakeUtils {
         return intersection;
     }
 
+    // Chooses a random tuple to remove from the servers, from the tuples available in common on the 3 servers
     public String chooseRandomTuple(List<String> intersection) {
         if (intersection.isEmpty()){
             return null;

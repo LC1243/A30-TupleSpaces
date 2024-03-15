@@ -16,7 +16,6 @@ import pt.ulisboa.tecnico.tuplespaces.client.ResponseCollector;
 import pt.ulisboa.tecnico.tuplespaces.client.util.OrderedDelayer;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static io.grpc.Status.INVALID_ARGUMENT;
 
@@ -46,8 +45,10 @@ public class ClientService {
         this.numServers = numServers;
         delayer = new OrderedDelayer(numServers);
         backoff = new Backoff();
+        // useful functions used for take command
         takeUtils = new TakeUtils();
         this.debugMode = debugMode;
+        // Get the servers addresses
         this.lookupServer();
 
         this.clientId = clientId;
@@ -207,21 +208,19 @@ public class ClientService {
 
        List<String> rejectedQualifiers = takeUtils.getRejectedRequestsQualifiers(lists);
 
-        //FIXME: Add Backoff times (sleeps)
        /* In case only a minority accepted the request
         *  release locks and repeat Phase1. The changes to global variables are due to the fact that
         * we want to give a bigger priority to clients that have a majority of servers accepting their request */
        if (rejectedQualifiers.size() >= 2) {
            backoff.setBackoffMultiplier(4);
            backoff.setInitialBackoffDelayMs(2000);
-           n_attempts = 0;
            // Perform set difference
-           if(rejectedQualifiers.size() == 2){
+           if(rejectedQualifiers.size() == 2) {
                List<String> qualifiers = new ArrayList<>(Arrays.asList("A", "B", "C"));
                String difference = takeUtils.getSetDifference(qualifiers, rejectedQualifiers);
                sendTakePhase1ReleaseRequestToMinority(difference);
            }
-           while (n_attempts < backoff.getMaxAttempts()) {
+           if (n_attempts < backoff.getMaxAttempts()) {
                long backoffDelay = backoff.calculateBackoffDelay(n_attempts);
                try {
                    Thread.sleep(backoffDelay);
@@ -232,10 +231,8 @@ public class ClientService {
                return sendTakeRequest(tuple);
            }
 
-           //FIXME: Release only in the minority (The one we locked)
-
        }
-        // Has 2 servers locked - repeats the take request operation only for the rejected server
+       // Has 2 servers locked - repeats the take request operation only for the rejected server
        else if (rejectedQualifiers.size() == 1) {
            backoff.setBackoffMultiplier(2);
            backoff.setInitialBackoffDelayMs(1000);
@@ -248,7 +245,6 @@ public class ClientService {
                    e.printStackTrace();
                }
 
-               //FIXME: Request to Minority doesn't sleep -> Function GetDelay ??
                List<String> list = sendTakePhase1RequestToMinority(tuple, rejectedQualifiers.get(0));
                if(list.size() > 1) {
                    int index = takeUtils.getRejectedRequestsQualifierIndex(lists);
@@ -266,15 +262,11 @@ public class ClientService {
 
         //if intersection is null, release acquired locks and repeat the process
        if(intersection.isEmpty()) {
-           // FIXME: RELEASE ALL LOCKS? OR DON'T RELEASE ANY AND ASK FOR A TAKE REQUEST AGAIN
-           // FIXME: 2 HAVE INTERSECTION -> REPEAT REQUEST TO OTHER SERVER
-           // FIXME: NONE HAVE INTERSECTION -> RELEASE ALL LOCKS
-           sendTakePhase1ReleaseRequest();
            return sendTakeRequest(tuple);
        }
 
-       String toRemove = takeUtils.chooseRandomTuple(intersection);
-       sendTakePhase2Request(toRemove);
+       String tupleToRemove = takeUtils.chooseRandomTuple(intersection);
+       sendTakePhase2Request(tupleToRemove);
        return 1;
     }
 
@@ -325,8 +317,13 @@ public class ClientService {
             listOfLists.add(list);
         }
 
+        if(debugMode){
+            System.err.println("DEBUG: Take Request finished correctly\n");
+        }
+
         return listOfLists;
     }
+
     // Only sends take phase 1 request for the server in the minority. When a client only has acquired 2/3 servers
     // It will ask for the acceptance of the missing server. Avoiding the release of the remaining two
     public List<String> sendTakePhase1RequestToMinority(String pattern, String qualifier) {
@@ -342,7 +339,6 @@ public class ClientService {
 
 
         int index = this.qualifiers.indexOf(qualifier);
-        //FIXME: HANDLE DELAYER TO THIS CASE -> only one request -> only one delay
 
             try {
                 stubs[index].takePhase1(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1Response>(c));
@@ -369,7 +365,7 @@ public class ClientService {
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Request initialized correctly\n");
+            System.err.println("DEBUG: Take phase 1 release initialized correctly\n");
         }
 
         ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest> requests =
@@ -387,7 +383,7 @@ public class ClientService {
                 stubs[id].takePhase1Release(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
             } catch (StatusRuntimeException e) {
                 if (debugMode) {
-                    System.err.println("DEBUG: TAKE PHASE 1 RELEASE command stopped.\n");
+                    System.err.println("DEBUG: Take phase 1 release command stopped.\n");
                 }
             }
         }
@@ -395,7 +391,7 @@ public class ClientService {
 
     // Only sends take release request for the server in the minority. When a client only has acquired 1/3 servers. It will release
     // it on this function
-    public void sendTakePhase1ReleaseRequestToMinority(String qualifier ){
+    public void sendTakePhase1ReleaseRequestToMinority(String qualifier){
 
         ResponseCollector c = new ResponseCollector();
 
@@ -407,16 +403,17 @@ public class ClientService {
                 TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest.newBuilder().setClientId(clientId).build();
 
         int id = this.qualifiers.indexOf(qualifier);
-        // FIXME: IS THIS CORRECT? Se nao puser, passa para a frente com qualificador null e ID = -1
+
         if(id == -1){
             return;
         }
+
         try {
             stubs[id].takePhase1Release(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
         } catch (StatusRuntimeException e) {
             System.out.println("Locks got released before the take operation finished");
             if (debugMode) {
-                System.err.println("DEBUG: TAKE PHASE 1 RELEASE command stopped.\n");
+                System.err.println("DEBUG: take phase 1 release command stopped.\n");
             }
         }
 
@@ -427,7 +424,7 @@ public class ClientService {
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
-            System.err.println("DEBUG: Take Phase 2 Request initialized correctly\n");
+            System.err.println("DEBUG: Take phase 2 request initialized correctly\n");
         }
 
         ArrayList<TupleSpacesReplicaXuLiskov.TakePhase2Request> requests =
@@ -445,7 +442,7 @@ public class ClientService {
                 stubs[id].takePhase2(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase2Response>(c));
             } catch (StatusRuntimeException e) {
                 if (debugMode) {
-                    System.err.println("DEBUG: TAKE PHASE 2 command stopped.\n");
+                    System.err.println("DEBUG: Take phase 2  request command stopped.\n");
                 }
             }
         }
@@ -456,7 +453,7 @@ public class ClientService {
             throw new RuntimeException(e);
         }
         if (debugMode) {
-            System.err.println("DEBUG: TAKE PHASE 2 finished correctly.\n");
+            System.err.println("DEBUG: Take phase 2 request finished correctly.\n");
         }
 
         System.out.print("OK\n" + tuple + "\n\n");

@@ -109,7 +109,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
             }
         // Valid tuple
         } else {
-            //Build response and remove tuple from the Server
+            //Build response and  send matching tuples to client
             List<String> matchingTuples = server.takePhase1(searchPattern, clientId);
 
             TupleSpacesReplicaXuLiskov.TakePhase1Response response =
@@ -170,6 +170,17 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         String tuple = request.getTuple();
         int clientId = request.getClientId();
 
+        boolean isValid = server.tuppleIsValid(tuple);
+
+        if(!isValid) {
+            responseObserver.onError(INVALID_ARGUMENT.withDescription("Tuple Name is Not Valid!").asRuntimeException());
+            if (debugMode) {
+                System.err.println("DEBUG: TAKE PHASE 2 command stopped. Tuple name is invalid\n");
+            }
+            return;
+        }
+
+        //Remove tuple from server and release the remaining locks acquired by this client
         int result = server.takePhase2(tuple, clientId);
 
         //Build Response
@@ -201,7 +212,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         java.util.List<java.lang.String> tuples = server.getTupleSpacesState();
 
         if(debugMode){
-            System.err.println(" DEBUG: Server's list delivered correctly. getTupleSpacesState iniatilized correctly\n");
+            System.err.println(" DEBUG: Server's list delivered correctly. getTupleSpacesState initialized correctly\n");
         }
 
         TupleSpacesReplicaXuLiskov.getTupleSpacesStateResponse response = TupleSpacesReplicaXuLiskov.getTupleSpacesStateResponse.newBuilder().addAllTuple(tuples).build();

@@ -77,7 +77,6 @@ public class ServerState {
 
     //Assure that the answer doesn't have repeated tuples
     // allowing to another clients use the other tuples (possibly for a take operation)
-    List<String> tuplesSet = new ArrayList<>();
     for (int i = 0; i < this.tuples.size(); i++) {
       String tuple = this.tuples.get(i);
 
@@ -118,6 +117,9 @@ public class ServerState {
       }
 
     }
+    // Add as the last element of tuple the qualifier of its server.
+    // This qualifier is going to be useful to know which server is in the
+    // minority and majority. By other words, the accepted and rejected servers.
     availableTuples.add(qualifier);
     return availableTuples;
   }
