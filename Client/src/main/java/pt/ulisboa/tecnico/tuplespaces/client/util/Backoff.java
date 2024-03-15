@@ -8,7 +8,7 @@ public class Backoff {
 
     private static double BACKOFF_MULTIPLIER = 2.0; //  backoff multiplier
 
-    private static final int  MAX_ATTEMPTS = 100 ;
+    private static final int  MAX_ATTEMPTS = 1000 ;
 
 
     //Function used in the implementation of an exponential backoffDelay in order to improve performance

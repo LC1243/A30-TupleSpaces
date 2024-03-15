@@ -25,8 +25,8 @@ code dependency management, to ensure your code runs using the correct component
 ## Getting Started
 
 The overall system is made up of several modules. The different types of servers are located in _ServerX_ (where X denotes stage 1, 2 or 3). 
-The clients is in _Client_.
-The definition of messages and services is in _Contract_. The future naming server
+The clients are in _Client_.
+The definition of messages and services is in _Contract_. The naming server
 is in _NamingServer_.
 
 See the [Project Statement](https://github.com/tecnico-distsys/TupleSpaces) for a complete domain and system description.
@@ -86,7 +86,8 @@ deactivate
 ## Running
 
 ### Contract
-<br> You should run these command in Contract directory
+<br> You should run these commands in the Contract directory
+
 ```s
 mvn install
 ```
@@ -95,7 +96,7 @@ mvn exec:exec
 ```
 
 **Name Server** (will run without arguments)
-<br> You should run this command in NameServer directory
+<br> You should run this command in the NameServer directory
 
 ```s
 python3 server.py
@@ -120,17 +121,17 @@ mvn exec:java -Dexec.args="2002 B"
 mvn exec:java -Dexec.args="2003 C"
 ```
 
-# Client 
+### Client 
 (without arguments, will have 1 as his clientId)
-<br> You should run these commands in Client directory
+<br> You should run these commands in the Client directory
 ```s
 mvn compile exec:java
 ```
 
-<br>If you wish to run it with another Id, you can run it the following way
+<br>If you wish to run it with another Id, you can run it the following way. Do not give ```0``` as an argument for the clientId.
 ```s
 mvn exec:java -Dexec.args="7"
 ```
 ### Debug Mode
 
-You can run the Client, ServerR2 and the NameServer with ```-debug``` flag, to see what requests they are handling while running the project.
+You can run the Client, ServerR2 and the NameServer with ```-debug``` flag, to see which requests they are handling while running the project.

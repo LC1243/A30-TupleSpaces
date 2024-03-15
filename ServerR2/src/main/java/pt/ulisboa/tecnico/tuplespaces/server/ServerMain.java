@@ -43,7 +43,7 @@ public class ServerMain {
 
                 // Exception caught
             } catch (StatusRuntimeException e) {
-                System.out.println("Caught exception with description: " +
+                System.err.println("Caught exception with description: " +
                         e.getStatus().getDescription());
             }
 
@@ -91,7 +91,7 @@ public class ServerMain {
 
                         // Exception caught
                     } catch (StatusRuntimeException e) {
-                        System.out.println("Caught exception with description: " +
+                        System.err.println("Caught exception with description: " +
                                 e.getStatus().getDescription());
                     }
 

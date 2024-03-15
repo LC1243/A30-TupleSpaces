@@ -118,8 +118,8 @@ public class ServerState {
     for (String tuple : matchingTuples) {
       int tuple_index = this.tuples.indexOf(tuple);
 
-      // if the tuple is free, lock it and associate it with the respective ClientId
-      if (take_locks.get(tuple_index) == 0) {
+      // if the tuple is free, lock it and associate it with the respective ClientId or if the client has already locked it
+      if (take_locks.get(tuple_index) == 0 || take_locks.get(tuple_index) == 1 && Objects.equals(take_ids.get(tuple_index), clientId)) {
         take_locks.set(tuple_index, 1);
         take_ids.set(tuple_index, clientId);
         availableTuples.add(tuple);

@@ -135,7 +135,7 @@ public class ClientService {
 
             // Exception caught
             } catch (StatusRuntimeException e) {
-                System.out.println("Caught exception with description: " +
+                System.err.println("Caught exception with description: " +
                         e.getStatus().getDescription());
             }
 
@@ -183,7 +183,7 @@ public class ClientService {
 
             } catch (StatusRuntimeException e) {
                 // Handle status runtime exception
-                System.out.println("Caught exception with description: " + e.getStatus().getDescription());
+                System.err.println("Caught exception with description: " + e.getStatus().getDescription());
             }
 
         }
@@ -203,23 +203,30 @@ public class ClientService {
     }
 
     public int sendTakeRequest(String tuple) {
+        if (debugMode) {
+            System.err.println("DEBUG: Take Request started correctly\n");
+        }
         // obtain matching tuples from all servers
        List<List<String>> lists = sendTakePhase1Request(tuple);
 
        List<String> rejectedQualifiers = takeUtils.getRejectedRequestsQualifiers(lists);
 
        /* In case only a minority accepted the request
-        *  release locks and repeat Phase1. The changes to global variables are due to the fact that
+        *  release locks and repeat Phase1. The changes to backoff parameters are due to the fact that
         * we want to give a bigger priority to clients that have a majority of servers accepting their request */
        if (rejectedQualifiers.size() >= 2) {
+           if (debugMode) {
+               System.err.println("DEBUG: Only has acceptance from minority of the servers\n");
+           }
            backoff.setBackoffMultiplier(4);
            backoff.setInitialBackoffDelayMs(2000);
-           // Perform set difference
+           // Perform set difference to know in which server we should release the locks
            if(rejectedQualifiers.size() == 2) {
                List<String> qualifiers = new ArrayList<>(Arrays.asList("A", "B", "C"));
                String difference = takeUtils.getSetDifference(qualifiers, rejectedQualifiers);
                sendTakePhase1ReleaseRequestToMinority(difference);
            }
+           // Wait some time and try again
            if (n_attempts < backoff.getMaxAttempts()) {
                long backoffDelay = backoff.calculateBackoffDelay(n_attempts);
                try {
@@ -234,6 +241,9 @@ public class ClientService {
        }
        // Has 2 servers locked - repeats the take request operation only for the rejected server
        else if (rejectedQualifiers.size() == 1) {
+           if (debugMode) {
+               System.err.println("DEBUG: Has acceptance from majority of the servers\n");
+           }
            backoff.setBackoffMultiplier(2);
            backoff.setInitialBackoffDelayMs(1000);
            n_attempts = 0;
@@ -258,15 +268,32 @@ public class ClientService {
        //find the intersection between matching tuples of all servers
        List<String> intersection = takeUtils.findIntersection(lists);
 
-       // Intersection between all sets of 2 of the 3 lists
-
-        //if intersection is null, release acquired locks and repeat the process
+        //if intersection is empty, try again after waiting the backoff time
        if(intersection.isEmpty()) {
-           return sendTakeRequest(tuple);
+           if (debugMode) {
+               System.err.println("DEBUG: The intersection is empty\n");
+           }
+
+           if (n_attempts < backoff.getMaxAttempts()) {
+               long backoffDelay = backoff.calculateBackoffDelay(n_attempts);
+               try {
+                   Thread.sleep(backoffDelay);
+               } catch (InterruptedException e) {
+                   e.printStackTrace();
+               }
+               n_attempts++;
+               return sendTakeRequest(tuple);
+           }
        }
 
+       //choose a random tuple from the intersection to remove
        String tupleToRemove = takeUtils.chooseRandomTuple(intersection);
+
+       //remove the tuple
        sendTakePhase2Request(tupleToRemove);
+        if (debugMode) {
+            System.err.println("DEBUG: Take " + tupleToRemove + " finished correctly\n");
+        }
        return 1;
     }
 
@@ -275,7 +302,7 @@ public class ClientService {
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
-            System.err.println("DEBUG: Take Request initialized correctly\n");
+            System.err.println("DEBUG: Take Phase 1 Request initialized correctly\n");
         }
 
         ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1Request> requests =
@@ -296,7 +323,7 @@ public class ClientService {
 
                 // Exception caught
             } catch (StatusRuntimeException e) {
-                System.out.println("Caught exception with description: " +
+                System.err.println("Caught exception with description: " +
                         e.getStatus().getDescription());
             }
 
@@ -318,7 +345,7 @@ public class ClientService {
         }
 
         if(debugMode){
-            System.err.println("DEBUG: Take Request finished correctly\n");
+            System.err.println("DEBUG: Take Phase 1 Request finished correctly\n");
         }
 
         return listOfLists;
@@ -331,7 +358,7 @@ public class ClientService {
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Request initialized correctly\n");
+            System.err.println("DEBUG: Take Phase 1 Request to minority initialized correctly\n");
         }
 
         TupleSpacesReplicaXuLiskov.TakePhase1Request request =
@@ -344,7 +371,7 @@ public class ClientService {
                 stubs[index].takePhase1(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1Response>(c));
                 // Exception caught
             } catch (StatusRuntimeException e) {
-                System.out.println("Caught exception with description: " +
+                System.err.println("Caught exception with description: " +
                         e.getStatus().getDescription());
             }
 
@@ -355,7 +382,7 @@ public class ClientService {
         }
 
         if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Request finished correctly\n");
+            System.err.println("DEBUG: Take Phase 1 Request to minority finished correctly\n");
         }
 
         return c.getLastListAndRemove();
@@ -365,7 +392,7 @@ public class ClientService {
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
-            System.err.println("DEBUG: Take phase 1 release initialized correctly\n");
+            System.err.println("DEBUG: Take Phase 1 Release initialized correctly\n");
         }
 
         ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest> requests =
@@ -383,7 +410,7 @@ public class ClientService {
                 stubs[id].takePhase1Release(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
             } catch (StatusRuntimeException e) {
                 if (debugMode) {
-                    System.err.println("DEBUG: Take phase 1 release command stopped.\n");
+                    System.err.println("DEBUG: Take Phase 1 Release command stopped.\n");
                 }
             }
         }
@@ -396,7 +423,7 @@ public class ClientService {
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 to Minority Request initialized correctly\n");
+            System.err.println("DEBUG: Take Phase 1 Release to Minority Request initialized correctly\n");
         }
 
         TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest request =
@@ -411,7 +438,7 @@ public class ClientService {
         try {
             stubs[id].takePhase1Release(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
         } catch (StatusRuntimeException e) {
-            System.out.println("Locks got released before the take operation finished");
+            System.err.println("Locks got released before the take operation finished");
             if (debugMode) {
                 System.err.println("DEBUG: take phase 1 release command stopped.\n");
             }
@@ -424,7 +451,7 @@ public class ClientService {
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
-            System.err.println("DEBUG: Take phase 2 request initialized correctly\n");
+            System.err.println("DEBUG: Take Phase 2 request initialized correctly\n");
         }
 
         ArrayList<TupleSpacesReplicaXuLiskov.TakePhase2Request> requests =
@@ -442,7 +469,7 @@ public class ClientService {
                 stubs[id].takePhase2(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase2Response>(c));
             } catch (StatusRuntimeException e) {
                 if (debugMode) {
-                    System.err.println("DEBUG: Take phase 2  request command stopped.\n");
+                    System.err.println("DEBUG: Take Phase 2 request command stopped.\n");
                 }
             }
         }
@@ -453,7 +480,7 @@ public class ClientService {
             throw new RuntimeException(e);
         }
         if (debugMode) {
-            System.err.println("DEBUG: Take phase 2 request finished correctly.\n");
+            System.err.println("DEBUG: Take Phase 2 Request finished correctly.\n");
         }
 
         System.out.print("OK\n" + tuple + "\n\n");
@@ -487,7 +514,7 @@ public class ClientService {
             }
             // Exception caught
         } catch (StatusRuntimeException | InterruptedException e) {
-            System.out.println("Caught exception with description: " +
+            System.err.println("Caught exception with description: " +
                     ((e instanceof StatusRuntimeException) ? ((StatusRuntimeException) e).getStatus().getDescription() : e.getMessage()));
             }
 

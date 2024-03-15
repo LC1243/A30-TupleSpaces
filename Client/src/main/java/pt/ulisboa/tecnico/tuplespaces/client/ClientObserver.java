@@ -71,7 +71,7 @@ public class ClientObserver<R> implements StreamObserver<R>  {
 
     @Override
     public void onError(Throwable throwable) {
-        System.out.println("Received error: " + throwable);
+        System.err.println("Received error: " + throwable);
     }
 
     @Override
