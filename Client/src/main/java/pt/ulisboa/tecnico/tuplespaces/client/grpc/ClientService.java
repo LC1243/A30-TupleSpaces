@@ -8,6 +8,7 @@ import pt.ulisboa.tecnico.nameServer.contract.NameServer;
 import pt.ulisboa.tecnico.nameServer.contract.NameServerServiceGrpc;
 import pt.ulisboa.tecnico.tuplespaces.client.ClientObserver;
 import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.*;
+import pt.ulisboa.tecnico.sequencer.contract.*;
 import io.grpc.StatusRuntimeException;
 
 import pt.ulisboa.tecnico.tuplespaces.client.ResponseCollector;
@@ -32,6 +33,10 @@ public class ClientService {
     private ManagedChannel[] channels;
     private TupleSpacesReplicaGrpc.TupleSpacesReplicaStub[] stubs;
 
+    private ManagedChannel seqNumberChannel;
+
+    private SequencerGrpc.SequencerStub seqNumberStub;
+
     public ClientService(boolean debugMode, int numServers) {
 
         this.numServers = numServers;
@@ -49,6 +54,9 @@ public class ClientService {
             stubs[i] = TupleSpacesReplicaGrpc.newStub(channels[i]);
         }
 
+        seqNumberChannel = ManagedChannelBuilder.forTarget("localhost:8080").usePlaintext().build();
+        seqNumberStub = SequencerGrpc.newStub(seqNumberChannel);
+
 
     }
 
@@ -61,6 +69,7 @@ public class ClientService {
         if(debugMode)
             System.err.println("DEBUG: Shutting down client\n");
 
+        seqNumberChannel.shutdown();
         for (ManagedChannel ch : channels)
             ch.shutdown();
     }
@@ -98,6 +107,30 @@ public class ClientService {
         }
     }
 
+    public int getSeqNumber() {
+        ResponseCollector c = new ResponseCollector();
+        if(debugMode){
+            System.err.println("DEBUG: Obtaining Sequence Number\n");
+        }
+
+        SequencerOuterClass.GetSeqNumberRequest request = SequencerOuterClass.GetSeqNumberRequest.newBuilder().build();
+
+        try {
+            seqNumberStub.getSeqNumber(request, new ClientObserver<SequencerOuterClass.GetSeqNumberResponse>(c));
+        } catch (StatusRuntimeException e) {
+            System.err.println("Caught exception with description: " +
+                    e.getStatus().getDescription());
+        }
+
+        //wait all responses
+        try {
+            c.waitUntilAllReceived(1);
+        } catch(InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        return Integer.parseInt(c.getFirstCollectedResponse());
+    }
 
     public void sendPutRequest(String tuple) {
 
@@ -108,11 +141,12 @@ public class ClientService {
         }
 
         ArrayList<TupleSpacesReplicaTotalOrder.PutRequest> requests = new ArrayList<TupleSpacesReplicaTotalOrder.PutRequest>();
-
+        int seqNumber = getSeqNumber();
         for(int i = 0; i < numServers; i++) {
             // FIXME: Send sequence Number Also
             //create requests for each server, with the new tuple
-            TupleSpacesReplicaTotalOrder.PutRequest request = TupleSpacesReplicaTotalOrder.PutRequest.newBuilder().setNewTuple(tuple).build();
+            TupleSpacesReplicaTotalOrder.PutRequest request = TupleSpacesReplicaTotalOrder.PutRequest.newBuilder().
+                    setNewTuple(tuple).setSeqNumber(seqNumber).build();
             requests.add(request);
         }
 
@@ -192,6 +226,49 @@ public class ClientService {
 
     public void sendTakeRequest(String tuple) {
         //TODO: Implement me with sequence Number
+        ResponseCollector c = new ResponseCollector();
+
+        if(debugMode){
+            System.err.println("DEBUG: Take Request initialized correctly\n");
+        }
+
+        ArrayList<TupleSpacesReplicaTotalOrder.TakeRequest> requests = new ArrayList<TupleSpacesReplicaTotalOrder.TakeRequest>();
+
+        int seqNumber = getSeqNumber();
+
+        for(int i = 0; i < numServers; i++) {
+            //create requests for each server, with the new tuple
+            TupleSpacesReplicaTotalOrder.TakeRequest request = TupleSpacesReplicaTotalOrder.TakeRequest.newBuilder()
+                    .setSearchPattern(tuple).setSeqNumber(seqNumber).build();
+            requests.add(request);
+
+        }
+
+
+        for(Integer id : delayer) {
+            try {
+                // Send the request to the server with the id
+                stubs[id].take(requests.get(id), new ClientObserver<TupleSpacesReplicaTotalOrder.TakeResponse>(c));
+
+            } catch (StatusRuntimeException e) {
+                // Handle status runtime exception
+                System.err.println("Caught exception with description: " + e.getStatus().getDescription());
+            }
+
+        }
+
+        //wait for the first response
+        try {
+            c.waitUntilAllReceived(numServers);
+        } catch(InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        if (debugMode) {
+            System.err.println("DEBUG: Read Request finished correctly\n");
+        }
+
+        System.out.print("OK\n" + c.getFirstCollectedResponse() + "\n\n");
     }
 
 

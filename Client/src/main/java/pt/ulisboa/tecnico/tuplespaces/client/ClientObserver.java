@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.tuplespaces.client;
 
 import io.grpc.stub.StreamObserver;
+import pt.ulisboa.tecnico.sequencer.contract.SequencerOuterClass.GetSeqNumberResponse;
 import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.TupleSpacesReplicaTotalOrder.PutResponse;
 import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.TupleSpacesReplicaTotalOrder.ReadResponse;
 import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.TupleSpacesReplicaTotalOrder.TakeResponse;
@@ -20,7 +21,13 @@ public class ClientObserver<R> implements StreamObserver<R>  {
     @Override
     public void onNext(R response) {
         // Checks the response type
-        if (response instanceof PutResponse) {
+        if (response instanceof GetSeqNumberResponse) {
+            //GetSequenceNumber request went successfully
+            GetSeqNumberResponse getSeqNumberResponse = (GetSeqNumberResponse) response;
+            String seqNumber = Integer.toString(getSeqNumberResponse.getSeqNumber());
+            collector.addString(seqNumber);
+        }
+        else if (response instanceof PutResponse) {
             //Put Request went successfully
             PutResponse putResponse = (PutResponse) response;
             collector.addString("OK");
@@ -31,6 +38,8 @@ public class ClientObserver<R> implements StreamObserver<R>  {
 
         } else if (response instanceof TakeResponse) {
             //FIXME: Implement me
+            TakeResponse takeResponse = (TakeResponse) response;
+            collector.addString(takeResponse.getResult());
             System.err.println("FIXME!!");
 
         } else if (response instanceof getTupleSpacesStateResponse) {
