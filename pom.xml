@@ -17,10 +17,8 @@
 		<module>Client</module>
 		<module>ServerR1</module>
 		<module>ServerR2</module>
+		<module>ServerR3</module>
 		<module>Sequencer</module>
-
-		<!-- These should only be used in phases 2 and 3
-		<module>ServerR3</module> -->
 
 	</modules>
 

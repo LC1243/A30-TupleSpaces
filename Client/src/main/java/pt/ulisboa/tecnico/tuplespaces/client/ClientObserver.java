@@ -1,12 +1,10 @@
 package pt.ulisboa.tecnico.tuplespaces.client;
 
 import io.grpc.stub.StreamObserver;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.TupleSpacesReplicaXuLiskov.*;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.TupleSpacesReplicaXuLiskov.PutResponse;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.TupleSpacesReplicaXuLiskov.ReadResponse;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.TupleSpacesReplicaXuLiskov.TakePhase1Response;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.TupleSpacesReplicaXuLiskov.TakePhase2Response;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.TupleSpacesReplicaXuLiskov.getTupleSpacesStateResponse;
+import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.TupleSpacesReplicaTotalOrder.PutResponse;
+import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.TupleSpacesReplicaTotalOrder.ReadResponse;
+import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.TupleSpacesReplicaTotalOrder.TakeResponse;
+import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.TupleSpacesReplicaTotalOrder.getTupleSpacesStateResponse;
 
 import java.util.List;
 
@@ -31,27 +29,9 @@ public class ClientObserver<R> implements StreamObserver<R>  {
             ReadResponse readResponse = (ReadResponse) response;
             collector.addString(readResponse.getResult());
 
-        } else if (response instanceof TakePhase1Response) {
-            // Handle TakePhase1Response
-            TakePhase1Response takePhase1Response = (TakePhase1Response) response;
-
-            List<String> matchingTuples = takePhase1Response.getReservedTuplesList();
-
-            /* each list is delimited by a "|" in the beginning and in the end "|"
-             * plus the qualifier is also sent by the server, so we can know which servers accepted/rejected the take request
-             * Example: server with qualifier A: [<a>,<b>,<c>, A] -> [|,<a>,<b>,<c>, A,|]
-             */
-            collector.addAllStrings(matchingTuples);
-
-        } else if (response instanceof TakePhase1ReleaseResponse) {
-            //Release Request went successfully
-            TakePhase1ReleaseResponse takePhase1ReleaseResponse = (TakePhase1ReleaseResponse) response;
-            collector.addString("OK");
-
-        } else if (response instanceof  TakePhase2Response) {
-            //Server removed the tuple successfully
-            TakePhase2Response takePhase2Response = (TakePhase2Response) response;
-            collector.addString("OK");
+        } else if (response instanceof TakeResponse) {
+            //FIXME: Implement me
+            System.err.println("FIXME!!");
 
         } else if (response instanceof getTupleSpacesStateResponse) {
             // Handle getTupleSpacesStateResponse

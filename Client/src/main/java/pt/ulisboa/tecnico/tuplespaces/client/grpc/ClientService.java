@@ -7,9 +7,7 @@ import io.grpc.ManagedChannelBuilder;
 import pt.ulisboa.tecnico.nameServer.contract.NameServer;
 import pt.ulisboa.tecnico.nameServer.contract.NameServerServiceGrpc;
 import pt.ulisboa.tecnico.tuplespaces.client.ClientObserver;
-import pt.ulisboa.tecnico.tuplespaces.client.util.Backoff;
-import pt.ulisboa.tecnico.tuplespaces.client.util.TakeUtils;
-import pt.ulisboa.tecnico.tuplespaces.replicaXuLiskov.contract.*;
+import pt.ulisboa.tecnico.tuplespaces.replicaTotalOrder.contract.*;
 import io.grpc.StatusRuntimeException;
 
 import pt.ulisboa.tecnico.tuplespaces.client.ResponseCollector;
@@ -28,30 +26,19 @@ public class ClientService {
     private boolean debugMode = false;
 
     OrderedDelayer delayer;
-    TakeUtils takeUtils;
-    Backoff backoff;
 
-    private final int clientId;
     private final int numServers;
 
     private ManagedChannel[] channels;
     private TupleSpacesReplicaGrpc.TupleSpacesReplicaStub[] stubs;
 
-    private int n_attempts = 0;
-
-
-    public ClientService(boolean debugMode, int numServers, int clientId) {
+    public ClientService(boolean debugMode, int numServers) {
 
         this.numServers = numServers;
         delayer = new OrderedDelayer(numServers);
-        backoff = new Backoff();
-        // useful functions used for take command
-        takeUtils = new TakeUtils();
         this.debugMode = debugMode;
         // Get the servers addresses
         this.lookupServer();
-
-        this.clientId = clientId;
 
         channels = new ManagedChannel[numServers];
         stubs = new TupleSpacesReplicaGrpc.TupleSpacesReplicaStub[numServers];
@@ -120,18 +107,19 @@ public class ClientService {
             System.err.println("DEBUG: Put Request initialized correctly\n");
         }
 
-        ArrayList<TupleSpacesReplicaXuLiskov.PutRequest> requests = new ArrayList<TupleSpacesReplicaXuLiskov.PutRequest>();
+        ArrayList<TupleSpacesReplicaTotalOrder.PutRequest> requests = new ArrayList<TupleSpacesReplicaTotalOrder.PutRequest>();
 
         for(int i = 0; i < numServers; i++) {
+            // FIXME: Send sequence Number Also
             //create requests for each server, with the new tuple
-            TupleSpacesReplicaXuLiskov.PutRequest request = TupleSpacesReplicaXuLiskov.PutRequest.newBuilder().setNewTuple(tuple).build();
+            TupleSpacesReplicaTotalOrder.PutRequest request = TupleSpacesReplicaTotalOrder.PutRequest.newBuilder().setNewTuple(tuple).build();
             requests.add(request);
         }
 
         for(Integer id : delayer) {
 
             try {
-                stubs[id].put(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.PutResponse>(c));
+                stubs[id].put(requests.get(id), new ClientObserver<TupleSpacesReplicaTotalOrder.PutResponse>(c));
 
             // Exception caught
             } catch (StatusRuntimeException e) {
@@ -165,12 +153,12 @@ public class ClientService {
             System.err.println("DEBUG: Read Request initialized correctly\n");
         }
 
-        ArrayList<TupleSpacesReplicaXuLiskov.ReadRequest> requests = new ArrayList<TupleSpacesReplicaXuLiskov.ReadRequest>();
+        ArrayList<TupleSpacesReplicaTotalOrder.ReadRequest> requests = new ArrayList<TupleSpacesReplicaTotalOrder.ReadRequest>();
 
 
         for(int i = 0; i < numServers; i++) {
             //create requests for each server, with the new tuple
-            TupleSpacesReplicaXuLiskov.ReadRequest request = TupleSpacesReplicaXuLiskov.ReadRequest.newBuilder().setSearchPattern(tuple).build();
+            TupleSpacesReplicaTotalOrder.ReadRequest request = TupleSpacesReplicaTotalOrder.ReadRequest.newBuilder().setSearchPattern(tuple).build();
             requests.add(request);
 
         }
@@ -179,7 +167,7 @@ public class ClientService {
         for(Integer id : delayer) {
             try {
                 // Send the request to the server with the id
-                stubs[id].read(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.ReadResponse>(c));
+                stubs[id].read(requests.get(id), new ClientObserver<TupleSpacesReplicaTotalOrder.ReadResponse>(c));
 
             } catch (StatusRuntimeException e) {
                 // Handle status runtime exception
@@ -202,288 +190,8 @@ public class ClientService {
         }
     }
 
-    public int sendTakeRequest(String tuple) {
-        if (debugMode) {
-            System.err.println("DEBUG: Take Request started correctly\n");
-        }
-        // obtain matching tuples from all servers
-       List<List<String>> lists = sendTakePhase1Request(tuple);
-
-       List<String> rejectedQualifiers = takeUtils.getRejectedRequestsQualifiers(lists);
-
-       /* In case only a minority accepted the request
-        *  release locks and repeat Phase1. The changes to backoff parameters are due to the fact that
-        * we want to give a bigger priority to clients that have a majority of servers accepting their request */
-       if (rejectedQualifiers.size() >= 2) {
-           if (debugMode) {
-               System.err.println("DEBUG: Only has acceptance from minority of the servers\n");
-           }
-           backoff.setBackoffMultiplier(4);
-           backoff.setInitialBackoffDelayMs(2000);
-           // Perform set difference to know in which server we should release the locks
-           if(rejectedQualifiers.size() == 2) {
-               List<String> qualifiers = new ArrayList<>(Arrays.asList("A", "B", "C"));
-               String difference = takeUtils.getSetDifference(qualifiers, rejectedQualifiers);
-               sendTakePhase1ReleaseRequestToMinority(difference);
-           }
-           // Wait some time and try again
-           if (n_attempts < backoff.getMaxAttempts()) {
-               long backoffDelay = backoff.calculateBackoffDelay(n_attempts);
-               try {
-                   Thread.sleep(backoffDelay);
-               } catch (InterruptedException e) {
-                   e.printStackTrace();
-               }
-               n_attempts++;
-               return sendTakeRequest(tuple);
-           }
-
-       }
-       // Has 2 servers locked - repeats the take request operation only for the rejected server
-       else if (rejectedQualifiers.size() == 1) {
-           if (debugMode) {
-               System.err.println("DEBUG: Has acceptance from majority of the servers\n");
-           }
-           backoff.setBackoffMultiplier(2);
-           backoff.setInitialBackoffDelayMs(1000);
-           n_attempts = 0;
-           while (n_attempts < backoff.getMaxAttempts()) {
-               long backoffDelay = backoff.calculateBackoffDelay(n_attempts);
-               try {
-                   Thread.sleep(backoffDelay);
-               } catch (InterruptedException e) {
-                   e.printStackTrace();
-               }
-
-               List<String> list = sendTakePhase1RequestToMinority(tuple, rejectedQualifiers.get(0));
-               if(list.size() > 1) {
-                   int index = takeUtils.getRejectedRequestsQualifierIndex(lists);
-                   lists.set(index, list);
-                   break;
-               }
-               n_attempts++;
-           }
-       }
-
-       //find the intersection between matching tuples of all servers
-       List<String> intersection = takeUtils.findIntersection(lists);
-
-        //if intersection is empty, try again after waiting the backoff time
-       if(intersection.isEmpty()) {
-           if (debugMode) {
-               System.err.println("DEBUG: The intersection is empty\n");
-           }
-
-           if (n_attempts < backoff.getMaxAttempts()) {
-               long backoffDelay = backoff.calculateBackoffDelay(n_attempts);
-               try {
-                   Thread.sleep(backoffDelay);
-               } catch (InterruptedException e) {
-                   e.printStackTrace();
-               }
-               n_attempts++;
-               return sendTakeRequest(tuple);
-           }
-       }
-
-       //choose a random tuple from the intersection to remove
-       String tupleToRemove = takeUtils.chooseRandomTuple(intersection);
-
-       //remove the tuple
-       sendTakePhase2Request(tupleToRemove);
-        if (debugMode) {
-            System.err.println("DEBUG: Take " + tupleToRemove + " finished correctly\n");
-        }
-       return 1;
-    }
-
-    public List<List<String>> sendTakePhase1Request(String pattern) {
-
-        ResponseCollector c = new ResponseCollector();
-
-        if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Request initialized correctly\n");
-        }
-
-        ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1Request> requests =
-                new ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1Request>();
-
-        for(int i = 0; i < numServers; i++) {
-            //create requests for each server, with the new tuple
-            TupleSpacesReplicaXuLiskov.TakePhase1Request request =
-                    TupleSpacesReplicaXuLiskov.TakePhase1Request.newBuilder().setSearchPattern(pattern).setClientId(clientId).build();
-            requests.add(request);
-
-        }
-
-        for(Integer id : delayer) {
-
-            try {
-                stubs[id].takePhase1(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1Response>(c));
-
-                // Exception caught
-            } catch (StatusRuntimeException e) {
-                System.err.println("Caught exception with description: " +
-                        e.getStatus().getDescription());
-            }
-
-        }
-
-        try {
-            c.waitUntilAllListsAreReceived(numServers);
-        } catch(InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        long n_lists = c.getNumberOfLists();
-
-        List<List<String>> listOfLists = new ArrayList<>();
-
-        for (int i = 0; i < n_lists; i++) {
-            List<String> list = c.getLastListAndRemove();
-            listOfLists.add(list);
-        }
-
-        if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Request finished correctly\n");
-        }
-
-        return listOfLists;
-    }
-
-    // Only sends take phase 1 request for the server in the minority. When a client only has acquired 2/3 servers
-    // It will ask for the acceptance of the missing server. Avoiding the release of the remaining two
-    public List<String> sendTakePhase1RequestToMinority(String pattern, String qualifier) {
-
-        ResponseCollector c = new ResponseCollector();
-
-        if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Request to minority initialized correctly\n");
-        }
-
-        TupleSpacesReplicaXuLiskov.TakePhase1Request request =
-                TupleSpacesReplicaXuLiskov.TakePhase1Request.newBuilder().setSearchPattern(pattern).setClientId(clientId).build();
-
-
-        int index = this.qualifiers.indexOf(qualifier);
-
-            try {
-                stubs[index].takePhase1(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1Response>(c));
-                // Exception caught
-            } catch (StatusRuntimeException e) {
-                System.err.println("Caught exception with description: " +
-                        e.getStatus().getDescription());
-            }
-
-        try {
-            c.waitUntilAllListsAreReceived(1);
-        } catch(InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Request to minority finished correctly\n");
-        }
-
-        return c.getLastListAndRemove();
-    }
-
-    public void sendTakePhase1ReleaseRequest(){
-        ResponseCollector c = new ResponseCollector();
-
-        if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Release initialized correctly\n");
-        }
-
-        ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest> requests =
-                new ArrayList<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest>();
-
-        for(int i = 0; i < numServers; i++) {
-            //create release requests for each server, with the new tuple
-            TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest request =
-                    TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest.newBuilder().setClientId(clientId).build();
-            requests.add(request);
-
-        }
-        for(Integer id : delayer) {
-            try {
-                stubs[id].takePhase1Release(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
-            } catch (StatusRuntimeException e) {
-                if (debugMode) {
-                    System.err.println("DEBUG: Take Phase 1 Release command stopped.\n");
-                }
-            }
-        }
-    }
-
-    // Only sends take release request for the server in the minority. When a client only has acquired 1/3 servers. It will release
-    // it on this function
-    public void sendTakePhase1ReleaseRequestToMinority(String qualifier){
-
-        ResponseCollector c = new ResponseCollector();
-
-        if(debugMode){
-            System.err.println("DEBUG: Take Phase 1 Release to Minority Request initialized correctly\n");
-        }
-
-        TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest request =
-                TupleSpacesReplicaXuLiskov.TakePhase1ReleaseRequest.newBuilder().setClientId(clientId).build();
-
-        int id = this.qualifiers.indexOf(qualifier);
-
-        if(id == -1){
-            return;
-        }
-
-        try {
-            stubs[id].takePhase1Release(request, new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase1ReleaseResponse>(c));
-        } catch (StatusRuntimeException e) {
-            System.err.println("Locks got released before the take operation finished");
-            if (debugMode) {
-                System.err.println("DEBUG: take phase 1 release command stopped.\n");
-            }
-        }
-
-    }
-
-
-    public void sendTakePhase2Request(String tuple){
-        ResponseCollector c = new ResponseCollector();
-
-        if(debugMode){
-            System.err.println("DEBUG: Take Phase 2 request initialized correctly\n");
-        }
-
-        ArrayList<TupleSpacesReplicaXuLiskov.TakePhase2Request> requests =
-                new ArrayList<TupleSpacesReplicaXuLiskov.TakePhase2Request>();
-
-        for(int i = 0; i < numServers; i++) {
-            //create requests for each server, with the new tuple
-            TupleSpacesReplicaXuLiskov.TakePhase2Request request =
-                    TupleSpacesReplicaXuLiskov.TakePhase2Request.newBuilder().setClientId(clientId).setTuple(tuple).build();
-            requests.add(request);
-
-        }
-        for(Integer id : delayer) {
-            try {
-                stubs[id].takePhase2(requests.get(id), new ClientObserver<TupleSpacesReplicaXuLiskov.TakePhase2Response>(c));
-            } catch (StatusRuntimeException e) {
-                if (debugMode) {
-                    System.err.println("DEBUG: Take Phase 2 request command stopped.\n");
-                }
-            }
-        }
-        //Wait for all responses
-        try {
-            c.waitUntilAllReceived(numServers);
-        } catch(InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        if (debugMode) {
-            System.err.println("DEBUG: Take Phase 2 Request finished correctly.\n");
-        }
-
-        System.out.print("OK\n" + tuple + "\n\n");
+    public void sendTakeRequest(String tuple) {
+        //TODO: Implement me with sequence Number
     }
 
 
@@ -501,11 +209,11 @@ public class ClientService {
             System.err.println("DEBUG: GetTupleSpaceStateRequest initialized correctly\n");
         }
 
-        TupleSpacesReplicaXuLiskov.getTupleSpacesStateRequest request = TupleSpacesReplicaXuLiskov.getTupleSpacesStateRequest.newBuilder().build();
+        TupleSpacesReplicaTotalOrder.getTupleSpacesStateRequest request = TupleSpacesReplicaTotalOrder.getTupleSpacesStateRequest.newBuilder().build();
 
         try {
 
-            stubs[index].getTupleSpacesState(request,  new ClientObserver<TupleSpacesReplicaXuLiskov.getTupleSpacesStateResponse>(c));
+            stubs[index].getTupleSpacesState(request,  new ClientObserver<TupleSpacesReplicaTotalOrder.getTupleSpacesStateResponse>(c));
             c.waitUntilAllListsAreReceived(1);
 
             System.out.println("OK");

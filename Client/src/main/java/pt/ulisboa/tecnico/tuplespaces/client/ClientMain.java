@@ -9,26 +9,15 @@ public class ClientMain {
     static final int numServers = 3;
     public static void main(String[] args) {
         boolean debugMode = false;
-        int clientId;
 
         // check arguments
-        if (args.length > 1 && "-debug".equals(args[1])) {
+        if (args.length > 0 && "-debug".equals(args[1])) {
             debugMode = true;
-        } else if (args.length > 1) {
-            System.err.println("Client only needs an Id! The other given arguments will be ignored");
-        } else if (args.length < 1) {
-            System.err.println("Client needs an unique Id to run!");
+        } else if (args.length > 0) {
+            System.err.println("No arguments needed to run Client! The given arguments will be ignored");
         }
 
-        clientId = Integer.parseInt(args[0]);
-
-        //we don't allow the clientId to be zero, since the server initializes the ids associated to tuples as zero
-        if (clientId == 0) {
-            System.err.println("\nClientId cannot be zero! Please run the program again, with another id!\n");
-            return;
-        }
-
-        CommandProcessor parser = new CommandProcessor(new ClientService(debugMode, ClientMain.numServers, clientId));
+        CommandProcessor parser = new CommandProcessor(new ClientService(debugMode, ClientMain.numServers));
         parser.parseInput();
 
     }
