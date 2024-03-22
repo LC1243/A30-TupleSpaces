@@ -11,7 +11,7 @@ public class ClientMain {
         boolean debugMode = false;
 
         // check arguments
-        if (args.length > 0 && "-debug".equals(args[1])) {
+        if (args.length > 0 && "-debug".equals(args[0])) {
             debugMode = true;
         } else if (args.length > 0) {
             System.err.println("No arguments needed to run Client! The given arguments will be ignored");

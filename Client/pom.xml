@@ -70,9 +70,9 @@
 				</executions>
 				<configuration>
 					<mainClass>${mainclass}</mainClass>
-					<arguments>
+					<!-- <arguments>
 						<argument>${client.id}</argument>
-					</arguments>
+					</arguments> -->
 					 <!-- <arguments>
 						<argument>${server.host}</argument>
 						<argument>${server.port}</argument>

@@ -23,6 +23,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
 
         //Get tuple sent by client
         String newTuple = request.getNewTuple();
+        int seqNumber = request.getSeqNumber();
         //FIXME: Deal with sequence number
 
         // Check if the tuple is valid
@@ -39,8 +40,12 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
             if (debugMode) {
                 System.err.println("DEBUG: Valid tuple. PUT command initialized correctly.\n");
             }
+
+            //  TODO: FAZER A VERIFICAÇAO DE QUE TAKE_REQUESTS
+            //   MAP NAO TEM NENHUMA ENTRADA COM ID IGUAL AO PATTERN
+
             //Add the tuple to the Server
-            server.put(newTuple);
+            server.put(newTuple, seqNumber);
 
             TupleSpacesReplicaTotalOrder.PutResponse response = TupleSpacesReplicaTotalOrder.PutResponse.newBuilder().build();
 
@@ -90,6 +95,45 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
     }
 
     // TODO: Do take function that deals with sequence number
+
+    @Override
+    public void take(TupleSpacesReplicaTotalOrder.TakeRequest request,
+                    StreamObserver<TupleSpacesReplicaTotalOrder.TakeResponse> responseObserver) {
+
+        //Get tuple sent by client
+        String pattern = request.getSearchPattern();
+        int seqNumber = request.getSeqNumber();
+        //FIXME: Deal with sequence number
+
+        // Check if the tuple is valid
+        boolean isValid = server.tuppleIsValid(pattern);
+
+        // Invalid tuple name
+        if(!isValid) {
+            responseObserver.onError(INVALID_ARGUMENT.withDescription("Tuple Name is Not Valid!").asRuntimeException());
+
+            if(debugMode) {
+                System.err.println("DEBUG: Invalid tuple. PUT command failed.\n");
+            }
+        } else {
+            if (debugMode) {
+                System.err.println("DEBUG: Valid tuple. PUT command initialized correctly.\n");
+            }
+            //Remove the tuple from the Server
+            String tuple = server.take(pattern, seqNumber);
+
+            TupleSpacesReplicaTotalOrder.TakeResponse response = TupleSpacesReplicaTotalOrder.TakeResponse.newBuilder().setResult(tuple).build();
+
+            // Send a single response through the stream.
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+
+            if (debugMode) {
+                System.err.println("DEBUG: PUT command finished correctly\n");
+            }
+        }
+    }
+
 
     @Override
     public void getTupleSpacesState(TupleSpacesReplicaTotalOrder.getTupleSpacesStateRequest request,
