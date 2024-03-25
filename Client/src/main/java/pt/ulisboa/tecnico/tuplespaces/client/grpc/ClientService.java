@@ -112,9 +112,9 @@ public class ClientService {
         if(debugMode){
             System.err.println("DEBUG: Obtaining Sequence Number\n");
         }
-
+        //Create a request to get the sequence number
         SequencerOuterClass.GetSeqNumberRequest request = SequencerOuterClass.GetSeqNumberRequest.newBuilder().build();
-
+        //Call the remote service method to get the sequence number
         try {
             seqNumberStub.getSeqNumber(request, new ClientObserver<SequencerOuterClass.GetSeqNumberResponse>(c));
         } catch (StatusRuntimeException e) {
@@ -122,7 +122,7 @@ public class ClientService {
                     e.getStatus().getDescription());
         }
 
-        //wait all responses
+        //Wait until all responses are received
         try {
             c.waitUntilAllReceived(1);
         } catch(InterruptedException e) {
@@ -141,17 +141,17 @@ public class ClientService {
         }
 
         ArrayList<TupleSpacesReplicaTotalOrder.PutRequest> requests = new ArrayList<TupleSpacesReplicaTotalOrder.PutRequest>();
+        // Get the current sequence number
         int seqNumber = getSeqNumber();
         for(int i = 0; i < numServers; i++) {
-            // FIXME: Send sequence Number Also
-            //create requests for each server, with the new tuple
+            //Create a put request for each server, using the new tuple and the sequence number
             TupleSpacesReplicaTotalOrder.PutRequest request = TupleSpacesReplicaTotalOrder.PutRequest.newBuilder().
                     setNewTuple(tuple).setSeqNumber(seqNumber).build();
             requests.add(request);
         }
-
+        // Iterate over each delayed server
         for(Integer id : delayer) {
-
+            // Send the put request to the server with the corresponding id
             try {
                 stubs[id].put(requests.get(id), new ClientObserver<TupleSpacesReplicaTotalOrder.PutResponse>(c));
 
@@ -164,7 +164,7 @@ public class ClientService {
 
         }
 
-        //wait all responses
+        //Wait until all responses are received
         try {
             c.waitUntilAllReceived(numServers);
         } catch(InterruptedException e) {
@@ -197,7 +197,7 @@ public class ClientService {
 
         }
 
-
+        //Iterate over each delayed server
         for(Integer id : delayer) {
             try {
                 // Send the request to the server with the id
@@ -225,7 +225,6 @@ public class ClientService {
     }
 
     public void sendTakeRequest(String tuple) {
-        //TODO: Implement me with sequence Number
         ResponseCollector c = new ResponseCollector();
 
         if(debugMode){
@@ -234,6 +233,7 @@ public class ClientService {
 
         ArrayList<TupleSpacesReplicaTotalOrder.TakeRequest> requests = new ArrayList<TupleSpacesReplicaTotalOrder.TakeRequest>();
 
+        // Get the current sequence number
         int seqNumber = getSeqNumber();
 
         for(int i = 0; i < numServers; i++) {
@@ -244,7 +244,7 @@ public class ClientService {
 
         }
 
-
+        // Iterate over each delayed server
         for(Integer id : delayer) {
             try {
                 // Send the request to the server with the id

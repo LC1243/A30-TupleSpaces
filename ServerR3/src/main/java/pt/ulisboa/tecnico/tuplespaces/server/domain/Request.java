@@ -1,23 +1,30 @@
 package pt.ulisboa.tecnico.tuplespaces.server.domain;
 
+import java.util.Comparator;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-
-import pt.ulisboa.tecnico.tuplespaces.server.domain.TakeRegistryComparator;
-
-public class TakeRegistry {
+public class Request {
     private int seqNumber;
 
     private Lock lock;
 
     private Condition condition;
 
-    TakeRegistry(int sequenceNumber) {
+    Request(int sequenceNumber) {
         this.seqNumber = sequenceNumber;
         this.lock = new ReentrantLock();
         this.condition = lock.newCondition();
+    }
+
+    class RequestComparator implements Comparator<Request> {
+
+        // Sort in ascending order of sequence Number
+        @Override
+        public int compare(Request a, Request b) {
+            return a.getSeqNumber() - b.getSeqNumber();
+        }
     }
 
     public int getSeqNumber(){

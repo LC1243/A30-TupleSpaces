@@ -5,7 +5,8 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import pt.ulisboa.tecnico.tuplespaces.server.domain.TakeRegistry;
+import io.grpc.stub.ServerCalls;
+import pt.ulisboa.tecnico.tuplespaces.server.domain.Request;
 
 public class ServerState {
 
@@ -19,19 +20,15 @@ public class ServerState {
   //next request to process
   int nextSeqNumber;
 
-  // TODO: IMPLEMENT LOCKS INSTEAD OF SYNCHRONIZED
   // Pattern and PriorityQueue of Objects (Object -> seqNumber + Condition + Lock)
-  private Map<String, PriorityQueue<TakeRegistry>> takeRequests;
+  private Map<String, PriorityQueue<Request>> takeRequests;
 
   private Map<String, ArrayList<Condition>> readRequests;
 
-  private Lock putLock;
-
-  private Condition notMyTurn;
-
+  // Take has the lock inside takeRequests
   private Lock readLock;
 
-  //TODO: Each tuple should have their own lock ??
+  private List<Request> waitingConditions;
 
   public ServerState(boolean debugMode, String qualifier) {
     this.tuples = new ArrayList<String>();
@@ -42,11 +39,10 @@ public class ServerState {
 
     this.takeRequests = new HashMap<>();
 
-    this.putLock = new ReentrantLock();
-    this.notMyTurn = putLock.newCondition();
-
     this.readRequests = new HashMap<>();
     this.readLock = new ReentrantLock();
+
+    this.waitingConditions = new ArrayList<>();
 
   }
 
@@ -64,26 +60,32 @@ public class ServerState {
   }
 
   public void put(String tuple, int seqNumber) {
-    //TODO: Locks possiveis:
-    //TODO: ReentrantLock, ReentrantReadWriteLock.<Read/Write>Lock
-    putLock.lock();
+    Request request = new Request(seqNumber);
+    request.getLock().lock();
     try {
-
+      // Waits for its turn
       while (seqNumber != nextSeqNumber) {
-        notMyTurn.await();
+        if(debugMode) {
+          System.out.println("[PUT" + tuple + "] waiting for his turn, SeqNumber:" + seqNumber);
+        }
+
+        this.waitingConditions.add(request);
+        request.getConditionVariable().await();
       }
       tuples.add(tuple);
+      // Signals the read requests waiting for the tuple
       wakeReadRequests(tuple);
 
-      if(!wakeTakeRequest(tuple))
+      // Wakes the take with the lowest sequence number that's waiting for the tuple
+      if(!wakeTakeRequest(tuple)) {
         nextSeqNumber++;
-      //TODO: if takes or reads requests waiting -> signal them
+        wakeUpNextRequest();
+      }
     } catch(InterruptedException e) {
       throw new RuntimeException(e);
     } finally {
-      putLock.unlock();
+      request.getLock().unlock();
     }
-    //notifyAll();
   }
 
   private String getMatchingTuple(String pattern) {
@@ -100,6 +102,7 @@ public class ServerState {
     readLock.lock();
 
     Condition condition = readLock.newCondition();
+
     //first read of this pattern, initialize list of conditions
     if(!readRequests.containsKey(pattern))
       readRequests.put(pattern, new ArrayList<Condition>());
@@ -128,22 +131,28 @@ public class ServerState {
   }
 
   public String take(String pattern, int seqNumber) {
-    TakeRegistry takeRegistry = new TakeRegistry(seqNumber);
+    Request request = new Request(seqNumber);
 
     //first take of this pattern, initialize Priority Queue
-    if(!takeRequests.containsKey(pattern))
-      takeRequests.put(pattern, new PriorityQueue<>(new TakeRegistryComparator()));
-
+    if(!takeRequests.containsKey(pattern)) {
+      Request.RequestComparator comparator = request.new RequestComparator();
+      takeRequests.put(pattern, new PriorityQueue<>(comparator));
+    }
     //add to the respective pattern priority queue
-    takeRequests.get(pattern).offer(takeRegistry);
+    takeRequests.get(pattern).offer(request);
 
-    System.out.println("PRIORITY QUEUE: " + takeRequests.get(pattern));
 
-    takeRegistry.getLock().lock();
+    request.getLock().lock();
 
     try {
+      // Waits until its turn
       while (seqNumber != nextSeqNumber) {
-        takeRegistry.getConditionVariable().await();
+        if(debugMode) {
+          System.out.println("[TAKE" + pattern + "] waiting for his turn, SeqNumber:" + seqNumber);
+        }
+
+        this.waitingConditions.add(request);
+        request.getConditionVariable().await();
       }
 
       String tuple = getMatchingTuple(pattern);
@@ -155,24 +164,28 @@ public class ServerState {
         }
 
         //still increment the sequence number, so a put request can satisfy this take
-        System.out.println("TAKE IS WAITING");
         nextSeqNumber++;
-        takeRegistry.getConditionVariable().await();
+
+        // Still locked after put - wakes the next request and waits
+        wakeUpNextRequest();
+        request.getConditionVariable().await();
         tuple = getMatchingTuple(pattern);
       }
 
-      //FIXME: Instead of adding this tuple, pass it directly from put to take
-      // remove tuple
+      // Finished waiting - takes the tuple from server
       tuples.remove(tuple);
-      takeRequests.get(pattern).remove(takeRegistry);
+      takeRequests.get(pattern).remove(request);
       System.out.println("TAKE is removing the tuple: " + tuple);
+
+      // Lastly, wake the next request up
       nextSeqNumber++;
+      wakeUpNextRequest();
       return tuple;
 
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     } finally {
-      takeRegistry.getLock().unlock();
+      request.getLock().unlock();
     }
    
   }
@@ -181,17 +194,14 @@ public class ServerState {
     return new ArrayList<>(this.tuples);
   }
 
-
+  //Returns a list of the patterns of takes requests waiting for a matching tuple, with pattern 'tuple'
   private List<String> getAllMatchingTuplesInTakeRequest(String tuple) {
     List<String> matchingTuples = new ArrayList<>();
 
-
     for (String key : takeRequests.keySet()) {
-
       if (tuple.matches(key)) {
         matchingTuples.add(key);
       }
-
     }
 
     return matchingTuples.isEmpty() ? null : matchingTuples;
@@ -201,29 +211,32 @@ public class ServerState {
   public boolean wakeTakeRequest(String pattern){
     Lock lock = null;
     Condition condition = null;
+    // Stores the lowest sequence number of the takes waiting for the pattern
     int min_seqNumber = 1000000000;
+
     List<String> matchingPatterns = getAllMatchingTuplesInTakeRequest(pattern);
 
+    // Found at least one match
     if(matchingPatterns!= null) {
-      System.out.println("GOT MATCHING TUPLES");
+
+      if(debugMode) {
+        System.out.println("Waking up a take request");
+      }
+
       // Get the priority queue from the match of pattern and the Map key
       for(String i : matchingPatterns) {
-        PriorityQueue<TakeRegistry> queue = takeRequests.get(i);
+        PriorityQueue<Request> queue = takeRequests.get(i);
 
       /*
        * An empty queue could bring fatal errors. Considering that if we do : take <a> -> put <a> -> put <a> again,
        * the map will have the key "a" but the priority queue will be empty,
        * since the prior put already satisfied the previous take request
       */
-      System.out.println("QUEUE PATTERN: " + i + " QUEUE: " + queue);
       if(!queue.isEmpty()){
-        TakeRegistry firstElement = queue.peek();
+        Request firstElement = queue.peek();
+
         // Signal to the conditional variable that the take register has been awake
-        System.out.println("QUEUE NOT EMPTY, SEQUENCE NUMBER: " + firstElement.getSeqNumber());
-        printQueues();
-        System.out.println("SeqNum:" + firstElement.getSeqNumber() + " < " + min_seqNumber);
         if(firstElement.getSeqNumber() < min_seqNumber) {
-          System.out.println("INSIDE IF");
           min_seqNumber = firstElement.getSeqNumber();
           condition = firstElement.getConditionVariable();
           lock = firstElement.getLock();
@@ -231,10 +244,15 @@ public class ServerState {
 
         }
       }
+      // Found the waiting take with the smallest sequence number
       if(min_seqNumber != (1000000000) && condition != null) {
-        System.out.println("SIGNALING TAKE WAITING");
         lock.lock();
         try {
+          if(debugMode) {
+            System.out.println("Waking up take request with pattern: " + pattern + " and seqNumber:" + min_seqNumber);
+          }
+
+          // Wakes it up
           condition.signal();
         } finally {
           lock.unlock();
@@ -254,7 +272,7 @@ public class ServerState {
         // Gets the waiting Conditions
         ArrayList<Condition> conditions = request.getValue();
 
-        // Signal all Conditions
+        // Signal all waiting Read Conditions
         for (Condition waitingCondition: conditions) {
           readLock.lock();
           try {
@@ -269,8 +287,39 @@ public class ServerState {
       }
     }
   }
-  public void printQueues() {
-    for(Map.Entry<String,PriorityQueue<TakeRegistry>> request : takeRequests.entrySet())
-      System.out.println("PATTERN: " + request.getKey() + " QUEUE:" + request.getValue());
+
+  public void wakeUpNextRequest() {
+    //there isn't a request waiting for his turn
+    if (waitingConditions.isEmpty()) {
+      return;
+    }
+
+    Request nextRequest = waitingConditions.get(0);
+
+    // Get the request with the minimum Sequence Number
+    for(Request registry: waitingConditions) {
+      if(registry.getSeqNumber() < nextRequest.getSeqNumber())
+        nextRequest = registry;
+    }
+
+    //If it's the next request to execute, wake him up
+    if(nextRequest.getSeqNumber() == nextSeqNumber) {
+      // Wakes Up the Request
+      nextRequest.getLock().lock();
+      try {
+        if(debugMode) {
+          System.out.println("Waking up the next request to execute:" + nextSeqNumber);
+        }
+
+        nextRequest.getConditionVariable().signal();
+      } finally {
+        nextRequest.getLock().unlock();
+      }
+
+      waitingConditions.remove(nextRequest);
+    }
+
   }
+
 }
+

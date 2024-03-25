@@ -33,14 +33,14 @@ public class ClientObserver<R> implements StreamObserver<R>  {
             collector.addString("OK");
 
         } else if (response instanceof ReadResponse) {
+            //Read Request went sucessfully
             ReadResponse readResponse = (ReadResponse) response;
             collector.addString(readResponse.getResult());
 
         } else if (response instanceof TakeResponse) {
-            //FIXME: Implement me
+            //Take Request went sucessfully
             TakeResponse takeResponse = (TakeResponse) response;
             collector.addString(takeResponse.getResult());
-            System.err.println("FIXME!!");
 
         } else if (response instanceof getTupleSpacesStateResponse) {
             // Handle getTupleSpacesStateResponse

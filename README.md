@@ -102,8 +102,8 @@ mvn exec:exec
 python3 server.py
 ```
 ### Servers
-**Server R2** (without arguments, will run on localhost, port 2001, with qualifier A)
-<br> You should run these commands in ServerR2 directory
+**Server R3** (without arguments, will run on localhost, port 2001, with qualifier A)
+<br> You should run these commands in ServerR3 directory
 <br> You should run 3 different servers with different ports and qualifiers (A, B or C)
 <br> <br> For example:
 - Server 1 (localhost, port 2001, qualifier A)
@@ -121,17 +121,21 @@ mvn exec:java -Dexec.args="2002 B"
 mvn exec:java -Dexec.args="2003 C"
 ```
 
-### Client 
-(without arguments, will have 1 as his clientId)
-<br> You should run these commands in the Client directory
+### Sequencer
+<br>The Sequencer will run by default on port 8080. If you change this, you will need to change the Client 
+code to, because he assumes that the Sequencer will run by default on port 8080.
+<br> You should run these commands in the Sequencer directory.
 ```s
 mvn compile exec:java
 ```
 
-<br>If you wish to run it with another Id, you can run it the following way. Do not give ```0``` as an argument for the clientId.
+### Client 
+<br> The Client doesn't need any arguments to run. You should run these commands in the Client directory
+
 ```s
-mvn exec:java -Dexec.args="7"
+mvn compile exec:java
 ```
+
 ### Debug Mode
 
 You can run the Client, ServerR2 and the NameServer with ```-debug``` flag, to see which requests they are handling while running the project.

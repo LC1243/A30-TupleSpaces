@@ -21,10 +21,9 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
     public void put(TupleSpacesReplicaTotalOrder.PutRequest request,
                     StreamObserver<TupleSpacesReplicaTotalOrder.PutResponse> responseObserver) {
 
-        //Get tuple sent by client
+        //Get tuple, and its sequence number
         String newTuple = request.getNewTuple();
         int seqNumber = request.getSeqNumber();
-        //FIXME: Deal with sequence number
 
         // Check if the tuple is valid
         boolean isValid = server.tuppleIsValid(newTuple);
@@ -41,15 +40,10 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
                 System.err.println("DEBUG: Valid tuple. PUT command initialized correctly.\n");
             }
 
-            //  TODO: FAZER A VERIFICAÇAO DE QUE TAKE_REQUESTS
-            //   MAP NAO TEM NENHUMA ENTRADA COM ID IGUAL AO PATTERN
-
-            //Add the tuple to the Server
+            //Server handles the put request
             server.put(newTuple, seqNumber);
 
             TupleSpacesReplicaTotalOrder.PutResponse response = TupleSpacesReplicaTotalOrder.PutResponse.newBuilder().build();
-
-            // Send a single response through the stream.
             responseObserver.onNext(response);
             responseObserver.onCompleted();
 
@@ -68,6 +62,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         }
 
         // Gets the pattern in the TupleSpacesCentralized.proto format
+        // Read Requests don't need a sequence number
         String pattern = request.getSearchPattern();
 
         boolean isValid = server.tuppleIsValid(pattern);
@@ -83,8 +78,6 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
             String tuple = server.read(pattern);
 
             TupleSpacesReplicaTotalOrder.ReadResponse response = TupleSpacesReplicaTotalOrder.ReadResponse.newBuilder().setResult(tuple).build();
-
-            //Send a single response through the stream.
             responseObserver.onNext(response);
             responseObserver.onCompleted();
 
@@ -94,16 +87,13 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         }
     }
 
-    // TODO: Do take function that deals with sequence number
-
     @Override
     public void take(TupleSpacesReplicaTotalOrder.TakeRequest request,
                     StreamObserver<TupleSpacesReplicaTotalOrder.TakeResponse> responseObserver) {
 
-        //Get tuple sent by client
+        //Gets the desired tuple, and the sequence number of the request
         String pattern = request.getSearchPattern();
         int seqNumber = request.getSeqNumber();
-        //FIXME: Deal with sequence number
 
         // Check if the tuple is valid
         boolean isValid = server.tuppleIsValid(pattern);
@@ -119,12 +109,10 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
             if (debugMode) {
                 System.err.println("DEBUG: Valid tuple. PUT command initialized correctly.\n");
             }
-            //Remove the tuple from the Server
+            //Server handles the take request
             String tuple = server.take(pattern, seqNumber);
 
             TupleSpacesReplicaTotalOrder.TakeResponse response = TupleSpacesReplicaTotalOrder.TakeResponse.newBuilder().setResult(tuple).build();
-
-            // Send a single response through the stream.
             responseObserver.onNext(response);
             responseObserver.onCompleted();
 
@@ -147,8 +135,6 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         }
 
         TupleSpacesReplicaTotalOrder.getTupleSpacesStateResponse response = TupleSpacesReplicaTotalOrder.getTupleSpacesStateResponse.newBuilder().addAllTuple(tuples).build();
-
-        // Send a single response through the stream.
         responseObserver.onNext(response);
         responseObserver.onCompleted();
 
