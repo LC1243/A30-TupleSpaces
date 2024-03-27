@@ -134,15 +134,16 @@ public class ServerState {
 
   public String take(String pattern, int seqNumber) {
     Request request = new Request(seqNumber);
+    boolean added =false;
 
+    /*
     //first take of this pattern, initialize Priority Queue
     if(!takeRequests.containsKey(pattern)) {
       Request.RequestComparator comparator = request.new RequestComparator();
       takeRequests.put(pattern, new PriorityQueue<>(comparator));
     }
     //add to the respective pattern priority queue
-    takeRequests.get(pattern).offer(request);
-
+    takeRequests.get(pattern).offer(request); */
 
     request.getLock().lock();
 
@@ -156,8 +157,18 @@ public class ServerState {
         this.waitingConditions.add(request);
         request.getConditionVariable().await();
       }
-
+      
       String tuple = getMatchingTuple(pattern);
+      if(tuple==null){
+        //first take of this pattern, initialize Priority Queue
+        if(!takeRequests.containsKey(pattern)) {
+          Request.RequestComparator comparator = request.new RequestComparator();
+          takeRequests.put(pattern, new PriorityQueue<>(comparator));
+        }
+        //add to the respective pattern priority queue
+        takeRequests.get(pattern).offer(request);
+        added = true;
+      }
 
       //while the tuple isn't present in the TupleSpace
       while (tuple == null) {
@@ -176,7 +187,10 @@ public class ServerState {
 
       // Finished waiting - takes the tuple from server
       tuples.remove(tuple);
-      takeRequests.get(pattern).remove(request);
+      if(added){
+        takeRequests.get(pattern).remove(request);
+      }
+
 
       // Lastly, wake the next request up
       nextSeqNumber++;
@@ -300,13 +314,13 @@ public class ServerState {
     }
 
     Request nextRequest = waitingConditions.get(0);
-
+    System.out.println("Next Request (Inicio): "+ nextRequest);
     // Get the request with the minimum Sequence Number
     for(Request registry: waitingConditions) {
       if(registry.getSeqNumber() < nextRequest.getSeqNumber())
         nextRequest = registry;
     }
-
+    System.out.println("Next Request (menor number): "+ nextRequest);
     //If it's the next request to execute, wake him up
     if(nextRequest.getSeqNumber() == nextSeqNumber) {
       // Wakes Up the Request
