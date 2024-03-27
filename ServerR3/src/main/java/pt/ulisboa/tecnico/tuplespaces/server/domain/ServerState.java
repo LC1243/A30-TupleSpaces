@@ -157,7 +157,7 @@ public class ServerState {
         this.waitingConditions.add(request);
         request.getConditionVariable().await();
       }
-      
+
       String tuple = getMatchingTuple(pattern);
       if(tuple==null){
         //first take of this pattern, initialize Priority Queue
@@ -314,13 +314,11 @@ public class ServerState {
     }
 
     Request nextRequest = waitingConditions.get(0);
-    System.out.println("Next Request (Inicio): "+ nextRequest);
     // Get the request with the minimum Sequence Number
     for(Request registry: waitingConditions) {
       if(registry.getSeqNumber() < nextRequest.getSeqNumber())
         nextRequest = registry;
     }
-    System.out.println("Next Request (menor number): "+ nextRequest);
     //If it's the next request to execute, wake him up
     if(nextRequest.getSeqNumber() == nextSeqNumber) {
       // Wakes Up the Request
