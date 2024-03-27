@@ -126,6 +126,10 @@ public class ClientService {
         //Wait until all responses are received
         try {
             c.waitUntilAllReceived(1);
+            if(c.isError()) {
+                System.err.println("An error occurred while trying to execute the getSeqNumber request, please try again");
+                return -1;
+            }
         } catch(InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -167,6 +171,10 @@ public class ClientService {
         //Wait until all responses are received
         try {
             c.waitUntilAllReceived(numServers);
+            if(c.isError()){
+                System.err.println("An error occurred while trying to execute the put request, please try again");
+                return;
+            }
         } catch(InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -213,6 +221,10 @@ public class ClientService {
         //wait for the first response
         try {
             c.waitUntilAllReceived(1);
+            if(c.isError()) {
+                System.err.println("An error occurred while trying to execute the read request, please try again");
+                return;
+            }
             System.out.println("OK");
             System.out.println(c.getFirstCollectedResponse() + "\n");
         } catch(InterruptedException e) {
@@ -260,6 +272,10 @@ public class ClientService {
         //wait for the first response
         try {
             c.waitUntilAllReceived(numServers);
+            if(c.isError()) {
+                System.err.println("An error occurred while trying to execute the take request, please try again");
+                return;
+            }
         } catch(InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -292,6 +308,10 @@ public class ClientService {
 
             stubs[index].getTupleSpacesState(request,  new ClientObserver<TupleSpacesReplicaTotalOrder.getTupleSpacesStateResponse>(c));
             c.waitUntilAllListsAreReceived(1);
+            if(c.isError()){
+                System.err.println("An error occurred while trying to execute the tuple space state request, please try again");
+                return new ArrayList<String>();
+            }
 
             System.out.println("OK");
             if (debugMode){

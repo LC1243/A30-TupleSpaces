@@ -6,8 +6,19 @@ import java.util.List;
 public class ResponseCollector {
     ArrayList<String> collectedResponses;
 
+    boolean error;
+
     public ResponseCollector() {
         collectedResponses = new ArrayList<String>();
+        error = false;
+    }
+
+    public void setError(boolean error) {
+        this.error = error;
+    }
+
+    public boolean isError() {
+        return error;
     }
 
     synchronized public void addString(String s) {
@@ -38,7 +49,7 @@ public class ResponseCollector {
     }
 
     synchronized  public void waitUntilAllListsAreReceived(int n) throws InterruptedException {
-        while(this.getNumberOfLists() < n)
+        while(this.getNumberOfLists() < n && !this.error)
             wait();
     }
 

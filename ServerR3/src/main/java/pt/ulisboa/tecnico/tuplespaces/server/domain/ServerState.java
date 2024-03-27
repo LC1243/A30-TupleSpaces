@@ -28,6 +28,7 @@ public class ServerState {
   // Take has the lock inside takeRequests
   private Lock readLock;
 
+  //List of requests waiting for their turn to execute (since their sequence Number is different from nextSeqNumber)
   private List<Request> waitingConditions;
 
   public ServerState(boolean debugMode, String qualifier) {
@@ -176,7 +177,6 @@ public class ServerState {
       // Finished waiting - takes the tuple from server
       tuples.remove(tuple);
       takeRequests.get(pattern).remove(request);
-      System.out.println("TAKE is removing the tuple: " + tuple);
 
       // Lastly, wake the next request up
       nextSeqNumber++;
