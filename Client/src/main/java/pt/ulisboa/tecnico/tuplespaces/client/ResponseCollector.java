@@ -80,7 +80,7 @@ public class ResponseCollector {
         return lastList;
     }
 
-    //To get the first response we got in a read request
+    /* Gets the first response received in a read request */
     synchronized public String getFirstCollectedResponse() {
         return this.collectedResponses.get(0);
     }

@@ -114,6 +114,7 @@ public class ClientService {
         }
         //Create a request to get the sequence number
         SequencerOuterClass.GetSeqNumberRequest request = SequencerOuterClass.GetSeqNumberRequest.newBuilder().build();
+
         //Call the remote service method to get the sequence number
         try {
             seqNumberStub.getSeqNumber(request, new ClientObserver<SequencerOuterClass.GetSeqNumberResponse>(c));
@@ -141,6 +142,7 @@ public class ClientService {
         }
 
         ArrayList<TupleSpacesReplicaTotalOrder.PutRequest> requests = new ArrayList<TupleSpacesReplicaTotalOrder.PutRequest>();
+
         // Get the current sequence number
         int seqNumber = getSeqNumber();
         for(int i = 0; i < numServers; i++) {
@@ -160,8 +162,6 @@ public class ClientService {
                 System.err.println("Caught exception with description: " +
                         e.getStatus().getDescription());
             }
-
-
         }
 
         //Wait until all responses are received

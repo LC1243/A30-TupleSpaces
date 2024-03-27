@@ -14,6 +14,7 @@ public class Request {
 
     Request(int sequenceNumber) {
         this.seqNumber = sequenceNumber;
+        //Initializes the lock and condition
         this.lock = new ReentrantLock();
         this.condition = lock.newCondition();
     }

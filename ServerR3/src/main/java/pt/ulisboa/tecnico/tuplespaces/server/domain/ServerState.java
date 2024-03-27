@@ -66,12 +66,13 @@ public class ServerState {
       // Waits for its turn
       while (seqNumber != nextSeqNumber) {
         if(debugMode) {
-          System.out.println("[PUT" + tuple + "] waiting for his turn, SeqNumber:" + seqNumber);
+          System.out.println("DEBUG: [PUT" + tuple + "] waiting for his turn, SeqNumber:" + seqNumber);
         }
 
         this.waitingConditions.add(request);
         request.getConditionVariable().await();
       }
+
       tuples.add(tuple);
       // Signals the read requests waiting for the tuple
       wakeReadRequests(tuple);
@@ -148,7 +149,7 @@ public class ServerState {
       // Waits until its turn
       while (seqNumber != nextSeqNumber) {
         if(debugMode) {
-          System.out.println("[TAKE" + pattern + "] waiting for his turn, SeqNumber:" + seqNumber);
+          System.out.println("DEBUG: [TAKE" + pattern + "] waiting for his turn, SeqNumber:" + seqNumber);
         }
 
         this.waitingConditions.add(request);
@@ -220,7 +221,7 @@ public class ServerState {
     if(matchingPatterns!= null) {
 
       if(debugMode) {
-        System.out.println("Waking up a take request");
+        System.out.println("DEBUG: Waking up a take request");
       }
 
       // Get the priority queue from the match of pattern and the Map key
@@ -249,7 +250,7 @@ public class ServerState {
         lock.lock();
         try {
           if(debugMode) {
-            System.out.println("Waking up take request with pattern: " + pattern + " and seqNumber:" + min_seqNumber);
+            System.out.println("DEBUG: Waking up take request with pattern: " + pattern + " and seqNumber:" + min_seqNumber);
           }
 
           // Wakes it up
@@ -269,6 +270,10 @@ public class ServerState {
     for (Map.Entry<String,ArrayList<Condition>> request : readRequests.entrySet()){
 
       if (tuple.matches(request.getKey())) {
+        if(debugMode) {
+          System.out.println("DEBUG: Waking up read requests with tuple: " + tuple);
+        }
+
         // Gets the waiting Conditions
         ArrayList<Condition> conditions = request.getValue();
 
@@ -308,7 +313,7 @@ public class ServerState {
       nextRequest.getLock().lock();
       try {
         if(debugMode) {
-          System.out.println("Waking up the next request to execute:" + nextSeqNumber);
+          System.out.println("DEBUG: Waking up the next request to execute, Sequence Number:" + nextSeqNumber);
         }
 
         nextRequest.getConditionVariable().signal();

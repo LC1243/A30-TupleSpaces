@@ -10,7 +10,7 @@ public class ClientMain {
     public static void main(String[] args) {
         boolean debugMode = false;
 
-        // check arguments
+        // Check arguments
         if (args.length > 0 && "-debug".equals(args[0])) {
             debugMode = true;
         } else if (args.length > 0) {

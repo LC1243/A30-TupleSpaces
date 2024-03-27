@@ -15,6 +15,7 @@ public class OrderedDelayer implements Iterable<Integer> {
             this.delay = 0;
         }
 
+        /* Compare delays of 2 DelayPairs */
         @Override
         public int compareTo(DelayPair o) {
             int i = Integer.valueOf(this.delay).compareTo(o.delay);
@@ -36,6 +37,7 @@ public class OrderedDelayer implements Iterable<Integer> {
             return iter.hasNext();
         }
 
+        /* Sleeps the required time */
         @Override
         public Integer next() {
             DelayPair dp = iter.next();
@@ -43,7 +45,6 @@ public class OrderedDelayer implements Iterable<Integer> {
                 int secsToSleep = dp.delay - alreadySlept;
                 if (secsToSleep > 0)
                     try {
-                        //System.out.println("will sleep for " + secsToSleep);
                         Thread.sleep((dp.delay - alreadySlept) * 1000);
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);

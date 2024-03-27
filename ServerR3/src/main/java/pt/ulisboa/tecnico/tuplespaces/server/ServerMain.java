@@ -16,7 +16,7 @@ public class ServerMain {
     public static void main(String[] args) throws IOException, InterruptedException{
         boolean debugMode = false;
 
-        // Check arguments.
+        // Check arguments
         if (args.length < 2) {
             System.err.println("Argument(s) missing!");
             System.err.printf("Usage: mvn exec:java -Dexec.args=<port> <qualifier>");
@@ -86,7 +86,7 @@ public class ServerMain {
                             setAddress("localhost:" + args[0]).build();
 
                     try {
-                        //send delete request to the Name Server, and handle response
+                        // Send delete request to the Name Server, and handle response
                         NameServer.DeleteResponse response = stub1.delete(request2);
 
                         // Exception caught

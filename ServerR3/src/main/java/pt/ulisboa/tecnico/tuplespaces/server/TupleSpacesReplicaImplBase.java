@@ -21,7 +21,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
     public void put(TupleSpacesReplicaTotalOrder.PutRequest request,
                     StreamObserver<TupleSpacesReplicaTotalOrder.PutResponse> responseObserver) {
 
-        //Get tuple, and its sequence number
+        // Get tuple, and its sequence number
         String newTuple = request.getNewTuple();
         int seqNumber = request.getSeqNumber();
 
@@ -131,7 +131,7 @@ public class TupleSpacesReplicaImplBase extends TupleSpacesReplicaGrpc.TupleSpac
         java.util.List<java.lang.String> tuples = server.getTupleSpacesState();
 
         if(debugMode){
-            System.err.println(" DEBUG: Server's list delivered correctly. getTupleSpacesState initialized correctly\n");
+            System.err.println("DEBUG: Server's list delivered correctly. getTupleSpacesState initialized correctly\n");
         }
 
         TupleSpacesReplicaTotalOrder.getTupleSpacesStateResponse response = TupleSpacesReplicaTotalOrder.getTupleSpacesStateResponse.newBuilder().addAllTuple(tuples).build();

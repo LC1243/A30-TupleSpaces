@@ -79,10 +79,8 @@ public class CommandProcessor {
             return;
         }
         
-        // get the tuple
+        // Get and put the tuple
         String tuple = split[1];
-
-        // put the tuple
         clientService.sendPutRequest(tuple);
 
     }
@@ -94,10 +92,8 @@ public class CommandProcessor {
             return;
         }
         
-        // get the tuple
+        // Get and read the tuple
         String tuple = split[1];
-
-        // read the tuple
         clientService.sendReadRequest(tuple);
     }
 
@@ -109,10 +105,8 @@ public class CommandProcessor {
             return;
         }
         
-        // get the tuple
+        // get and take the tuple
         String tuple = split[1];
-
-        // take the tuple
         clientService.sendTakeRequest(tuple);
     }
 
@@ -138,7 +132,7 @@ public class CommandProcessor {
         // Receives the tuples list
         List<String> tuples = clientService.sendGetTupleSpacesStateRequest(split[1]);
 
-        // Prints the list
+        // output stores the list
         String output = "[";
 
         // Avoids calculating the length of the list every iteration of the loop

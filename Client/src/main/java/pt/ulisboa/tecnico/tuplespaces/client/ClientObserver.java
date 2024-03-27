@@ -20,9 +20,9 @@ public class ClientObserver<R> implements StreamObserver<R>  {
 
     @Override
     public void onNext(R response) {
-        // Checks the response type
+        /* Check the response type */
         if (response instanceof GetSeqNumberResponse) {
-            //GetSequenceNumber request went successfully
+            //Successful GetSequenceNumber request
             GetSeqNumberResponse getSeqNumberResponse = (GetSeqNumberResponse) response;
             String seqNumber = Integer.toString(getSeqNumberResponse.getSeqNumber());
             collector.addString(seqNumber);
@@ -33,7 +33,7 @@ public class ClientObserver<R> implements StreamObserver<R>  {
             collector.addString("OK");
 
         } else if (response instanceof ReadResponse) {
-            //Read Request went sucessfully
+            //Read Request successful
             ReadResponse readResponse = (ReadResponse) response;
             collector.addString(readResponse.getResult());
 
