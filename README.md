@@ -6,6 +6,46 @@ Distributed Systems Project 2024
 
 **Difficulty level: I am Death incarnate!**
 
+The goal of this project was to develop the **TupleSpace** system, a service that implements a distributed _tuple space_ using gRPC and Java (along with a Python NameServer). There are **three different implementations**, each in their respective branches, explained further below.
+
+## What is a TupleSpace?
+
+The service allows one or more users (also called _workers_ in the literature) to place tuples in the shared space, read existing tuples, as well as remove tuples from the space. A tuple is an ordered set of fields _<field_1, field_2, ..., field_n>_.
+In this project, a tuple must be instantiated as a _string_, for example, `"<vacancy,sd,shift1>"`.
+
+In the TupleSpace, several identical instances can co-exist.
+For example, there may be multiple tuples `"<vacancy,sd,turno1>"`, indicating the existence of several vacancies.
+
+It is possible to search, in the space of tuples, for a given tuple to read or remove.
+In the simplest variant, one can search for a concrete tuple. For example, `"<vacancy,sd,shift1>"`.
+Alternatively, you can use [Java regular expressions](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#sum) to allow pairing with multiple values. For example, `"<vacancy,sd,[^,]+>"` pairs with `"<vacancy,sd,turno1>"` as well as `"<vacancy,sd,turno2>"`.
+
+The operations available to the user are the following: _put_, _read_, _take_ and _getTupleSpacesState_.
+
+* The *put* operation adds a tuple to the shared space.
+
+* The *read* operation accepts the tuple description (possibly with regular expression) and returns *a* tuple that matches the description, if one exists. This operation blocks the client until a tuple that satisfies the description exists. The tuple is *not* removed from the tuple space.
+
+* The *take* operation accepts the tuple description (possibly with regular expression) and returns *a* tuple that matches the description. This operation blocks the client until a tuple that satisfies the description exists. The tuple *is* removed from the tuple space.
+
+* The *getTupleSpacesState* operation receives as its only argument the qualifier of the server to be queried and returns all tuples present on that server.
+
+Users access the **TupleSpace** service through a client process, which interacts
+with one or more servers that offer the service, through calls to remote procedures.
+
+## Implementations:
+
+* **R1** (on branch first-delivery): The service is provided by a single server (i.e. a simple client-server architecture, without server replication), which accepts requests at a fixed address/port.
+
+* **R2** (on branch second-delivery): The service is replicated in three servers (A, B and C), following an adaptation of the [Xu-Liskov algorithm](http://www.ai.mit.edu/projects/aries/papers/programming/linda.pdf). This algorithm performs the _take_ operation in two steps to ensure consistency (explained in more detail in the R2 branch).
+
+* **R3** (on branch third-delivery): This implementation is based on the **State Machine Replication** (SMR) approach, an alternative to the Xu/Liskov algorithm. This approach focuses on ensuring total order for operations between the three replicas.
+
+Note that both Variant 2 and Variant 3 have advantages and disadvantages, and may present better or worse performance depending on the pattern of use of the tuple space.
+
+You can also find in each branch a `README.md`, explaining how to run the project.
+
+---------
 
 ### Code Identification
 
@@ -55,87 +95,3 @@ mvn clean install
 
 * [Maven](https://maven.apache.org/) - Build and dependency management tool;
 * [gRPC](https://grpc.io/) - RPC framework.
-
-## Run the project
-
-### Setting up
-
-First you need to set up the virtual environment, in the home directory, A30-TupleSpaces
-1. Create a virtual environment 
-```s
-python3 -m venv .venv
-```
-2. Activate the virtual environment
-```s
-source .venv/bin/activate
-```
-
-3. Install grpcio package
-```s
-python -m pip install grpcio
-```
-4. Install grpcio-tools package
-```s
-python -m pip install grpcio-tools
-```
-5. If you wish to deactivate the virtual environment after running the project
-```s
-deactivate
-```
-
-## Running
-
-### Contract
-<br> You should run these commands in the Contract directory
-
-```s
-mvn install
-```
-```s
-mvn exec:exec
-```
-
-**Name Server** (will run without arguments)
-<br> You should run this command in the NameServer directory
-
-```s
-python3 server.py
-```
-### Servers
-**Server R3** (without arguments, will run on localhost, port 2001, with qualifier A)
-<br> You should run these commands in ServerR3 directory
-<br> You should run 3 different servers with different ports and qualifiers (A, B or C)
-<br> <br> For example:
-- Server 1 (localhost, port 2001, qualifier A)
-```s
-mvn compile exec:java
-```
-
-- Server 2 (localhost, port 2002, qualifier B)
-```s
-mvn exec:java -Dexec.args="2002 B"
-```
-
-- Server 3 (localhost, port 2003, qualifier C)
-```s
-mvn exec:java -Dexec.args="2003 C"
-```
-
-### Sequencer
-<br>The Sequencer will run by default on port 8080. If you change this, you will need to change the Client 
-code to, because he assumes that the Sequencer will run by default on port 8080.
-<br> You should run these commands in the Sequencer directory.
-```s
-mvn compile exec:java
-```
-
-### Client 
-<br> The Client doesn't need any arguments to run. You should run these commands in the Client directory
-
-```s
-mvn compile exec:java
-```
-
-### Debug Mode
-
-You can run the Client, ServerR2 and the NameServer with ```-debug``` flag, to see which requests they are handling while running the project.
